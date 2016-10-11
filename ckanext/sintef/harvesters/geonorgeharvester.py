@@ -21,9 +21,6 @@ from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError
 import logging
 log = logging.getLogger(__name__)
 
-from base import HarvesterBase
-
-
 class GeonorgeHarvester(SingletonPlugin):
     '''
     Geonorge Harvester

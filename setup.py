@@ -17,15 +17,15 @@ setup(
     # http://packaging.python.org/en/latest/tutorial.html#version
     version='0.0.1',
 
-    description='''"Harvest plugins for Sintef."''',
+    description='''Harvest plugins for Sintef.''',
     long_description=long_description,
 
     # The project's main homepage.
     url='https://github.com/NTNU-SINTEF-Project-Group/ckanext-sintef',
 
     # Author details
-    author='''"Awat A. Langø, Henrik S. Ødegård"''',
-    author_email='''"awatal@ntnu.no"''',
+    author='''Awat A. Langø, Henrik S. Ødegård''',
+    author_email='''awatal@ntnu.no''',
 
     # Choose your license
     license='AGPL',
@@ -49,7 +49,7 @@ setup(
 
 
     # What does your project relate to?
-    keywords='''CKAN "CKAN harvest plugins"''',
+    keywords='''CKAN harvest plugins''',
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
