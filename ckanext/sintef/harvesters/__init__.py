@@ -1,0 +1,1 @@
+from ckanext.sintef.harvesters.geonorgeharvester import GeonorgeHarvester
