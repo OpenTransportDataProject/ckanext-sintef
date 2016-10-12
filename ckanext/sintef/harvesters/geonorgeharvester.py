@@ -300,7 +300,7 @@ class GeonorgeHarvester(SingletonPlugin):
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'facets[0]name': 'theme',
                   'facets[0]value': 'Samferdsel',
-                  'limit': '100'}
+                  'offset': '1'}
         pkg_dicts = []
 
         while True:
@@ -325,6 +325,13 @@ class GeonorgeHarvester(SingletonPlugin):
                 raise SearchError('Response JSON did not contain '
                                   'results: %r' % response_dict)
             pkg_dicts.extend(pkg_dicts_page)
+
+            log.debug(len(pkg_dicts_page))
+
+            if len(pkg_dicts_page) == 0:
+                break
+
+            params['offset'] = str(int(params['offset']) + 10)
 
         return pkg_dicts
 
