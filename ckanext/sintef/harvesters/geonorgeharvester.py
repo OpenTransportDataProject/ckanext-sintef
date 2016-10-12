@@ -190,8 +190,8 @@ class GeonorgeHarvester(SingletonPlugin):
         if get_all_packages:
             # Request all remote packages
             try:
-                pkg_dicts = self._search_for_datasets(remote_geonorge_base_url, '''
-                                                      fq_terms''')
+                pkg_dicts = self._search_for_datasets(remote_geonorge_base_url)
+                                                      #, fq_terms)
             except SearchError, e:
                 log.info('Searching for all datasets gave an error: %s', e)
                 self._save_gather_error(
@@ -335,3 +335,6 @@ class GeonorgeHarvester(SingletonPlugin):
 
     def _get_search_api_offset(self):
         return '/api/search/'
+
+class SearchError(Exception):
+    pass
