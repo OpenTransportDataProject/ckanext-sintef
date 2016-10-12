@@ -31,6 +31,12 @@ class GeonorgeHarvester(SingletonPlugin):
     api_version = 2
     action_api_version = 3
 
+    def _get_search_api_offset(self):
+        return '/api/search/'
+
+    def _get_geonorge_base_url(self):
+        return 'kartkatalog.geonorge.no'
+
     def info(self):
         '''
         Harvesting implementations must provide this method, which will return
@@ -108,6 +114,17 @@ class GeonorgeHarvester(SingletonPlugin):
         :param harvest_object_id: HarvestObject id
         :returns: A string with the URL to the original document
         '''
+        params = {'facets[0]name': 'uuid',
+                  'facets[0]value': harvest_object_id,
+                  'limit': '1'}
+        metadata_url = self._get_geonorge_base_url() + self._get_search_api_offset() + '?' + urllib.urlencode(params)
+        content = self._get_content(metadata_url)
+        content_json = json.loads(content)
+        try:
+            return content_json[u'Results'][0][u'DistributionUrl']
+        except Exception as e:
+            log.debug('No URL could be found for Harvest Object with ID=\'' + harvest_object_id + '\'')
+
 
     def gather_stage(self, harvest_job):
         '''
@@ -248,6 +265,7 @@ class GeonorgeHarvester(SingletonPlugin):
         :returns: True if successful, 'unchanged' if nothing to import after
                   all, False if not successful
         '''
+        log.debug('In GeonorgeHarvester fetch_stage')
         return True
 
     def import_stage(self, harvest_object):
@@ -276,9 +294,10 @@ class GeonorgeHarvester(SingletonPlugin):
         :returns: True if the action was done, "unchanged" if the object didn't
                   need harvesting after all or False if there were errors.
         '''
+        log.debug('In GeonorgeHarvester import_stage')
 
     def _search_for_datasets(self, remote_geonorge_base_url):
-        base_search_url = remote_ckan_base_url + self._get_search_api_offset()
+        base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'facets[0]name': 'theme',
                   'facets[0]value': 'Samferdsel',
                   'limit': '100'}
@@ -332,6 +351,3 @@ class GeonorgeHarvester(SingletonPlugin):
         except Exception, e:
             raise ContentFetchError('HTTP general exception: %s' % e)
         return http_response.read()
-
-    def _get_search_api_offset(self):
-        return '/api/search/'
