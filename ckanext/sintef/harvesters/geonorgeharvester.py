@@ -17,13 +17,12 @@ from ckan.lib.munge import munge_name
 from ckan.plugins import toolkit
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError
+from ckanext.sintef.harvesters.base import SintefHarvesterBase
 
 import logging
 log = logging.getLogger(__name__)
 
-from ckanext.harvest.harvesters.base import HarvesterBase
-
-class GeonorgeHarvester(HarvesterBase):
+class GeonorgeHarvester(SintefHarvesterBase):
     '''
     Geonorge Harvester
     '''
