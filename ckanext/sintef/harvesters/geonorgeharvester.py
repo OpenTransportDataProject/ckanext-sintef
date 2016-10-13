@@ -168,41 +168,42 @@ class GeonorgeHarvester(SintefHarvesterBase):
             fq_terms.extend(
                 '-organization:%s' % org_name for org_name in org_filter_exclude)
 
-        # Ideally we can request from the remote CKAN only those datasets
-        # modified since the last completely successful harvest.
-        # last_error_free_job = self._last_error_free_job(harvest_job)
-        # log.debug('Last error-free job: %r', last_error_free_job)
-        # if (last_error_free_job and
-        #         not self.config.get('force_all', False)):
-        #     get_all_packages = False
-        #
-        #     # Request only the datasets modified since
-        #     last_time = last_error_free_job.gather_started
-        #     # Note: SOLR works in UTC, and gather_started is also UTC, so
-        #     # this should work as long as local and remote clocks are
-        #     # relatively accurate. Going back a little earlier, just in case.
-        #     get_changes_since = \
-        #         (last_time - datetime.timedelta(hours=1)).isoformat()
-        #     log.info('Searching for datasets modified since: %s UTC',
-        #              get_changes_since)
-        #
-        #     fq_since_last_time = 'metadata_modified:[{since}Z TO *]' \
-        #         .format(since=get_changes_since)
-        #
-        #     try:
-        #         pkg_dicts = self._search_for_datasets(
-        #             remote_geonorge_base_url,
-        #             fq_terms + [fq_since_last_time])
-        #     except SearchError, e:
-        #         log.info('Searching for datasets changed since last time '
-        #                  'gave an error: %s', e)
-        #         get_all_packages = True
-        #
-        #     if not get_all_packages and not pkg_dicts:
-        #         log.info('No datasets have been updated on the remote '
-        #                  'CKAN instance since the last harvest job %s',
-        #                  last_time)
-        #         return None
+        #Ideally we can request from the remote CKAN only those datasets
+        #modified since the last completely successful harvest.
+        last_error_free_job = False
+        #last_error_free_job = self._last_error_free_job(harvest_job)
+        log.debug('Last error-free job: %r', last_error_free_job)
+        if (last_error_free_job and
+                not self.config.get('force_all', False)):
+            get_all_packages = False
+
+            # Request only the datasets modified since
+            last_time = last_error_free_job.gather_started
+            # Note: SOLR works in UTC, and gather_started is also UTC, so
+            # this should work as long as local and remote clocks are
+            # relatively accurate. Going back a little earlier, just in case.
+            get_changes_since = \
+                (last_time - datetime.timedelta(hours=1)).isoformat()
+            log.info('Searching for datasets modified since: %s UTC',
+                    get_changes_since)
+
+            fq_since_last_time = 'metadata_modified:[{since}Z TO *]' \
+                .format(since=get_changes_since)
+
+            try:
+                pkg_dicts = self._search_for_datasets(
+                    remote_geonorge_base_url,
+                    fq_terms + [fq_since_last_time])
+            except SearchError, e:
+                log.info('Searching for datasets changed since last time '
+                        'gave an error: %s', e)
+                get_all_packages = True
+
+            if not get_all_packages and not pkg_dicts:
+                log.info('No datasets have been updated on the remote '
+                        'CKAN instance since the last harvest job %s',
+                        last_time)
+                return None
 
         # Fall-back option - request all the datasets from the remote CKAN
         if get_all_packages:
@@ -477,7 +478,8 @@ class GeonorgeHarvester(SintefHarvesterBase):
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'facets[0]name': 'theme',
                   'facets[0]value': 'Samferdsel',
-                  'offset': '1'}
+                  'offset': 1
+                  'limit': 10}
         pkg_dicts = []
 
         while True:
@@ -508,7 +510,7 @@ class GeonorgeHarvester(SintefHarvesterBase):
             if len(pkg_dicts_page) == 0:
                 break
 
-            params['offset'] = str(int(params['offset']) + 10)
+            params['offset'] += params['limit']
 
         return pkg_dicts
 
