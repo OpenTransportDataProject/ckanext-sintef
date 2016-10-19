@@ -35,6 +35,9 @@ class GeonorgeHarvester(SintefHarvesterBase):
     def _get_search_api_offset(self):
         return '/api/search/'
 
+    def _get_getdata_api_offset(self):
+        return '/api/getdata/'
+
     def _get_geonorge_base_url(self):
         return 'kartkatalog.geonorge.no'
 
@@ -267,7 +270,33 @@ class GeonorgeHarvester(SintefHarvesterBase):
         :returns: True if successful, 'unchanged' if nothing to import after
                   all, False if not successful
         '''
-        log.debug('In GeonorgeHarvester fetch_stage')
+        # log.debug('In GeonorgeHarvester fetch_stage')
+        #
+        # remote_geonorge_base_url = harvest_object.job.source.url.rstrip('/')
+        # base_getdata_url = remote_geonorge_base_url + self._get_getdata_api_offset()
+        # url = base_getdata_url + harvest_object.guid
+        #
+        # log.debug('Searching for Geonorge dataset: %s', url)
+        # try:
+        #     content = self._get_content(url)
+        # except ContentFetchError, e:
+        #     raise SearchError('Error sending request to search remote '
+        #                       'Geonorge instance %s url %r. Error: %s' %
+        #                       (remote_geonorge_base_url, url, e))
+        #
+        # try:
+        #     response_dict = json.loads(content)
+        # except ValueError:
+        #     raise SearchError('Response from remote Geonorge was not JSON: %r'
+        #                       % content)
+        #
+        # harvest_object_content = json.loads(harvest_object.content)
+        # harvest_object_content.update(response_dict)
+        #
+        # log.debug('HARVEST_OBJECT_FETCH_UPDATE: %s', harvest_object_content)
+        #
+        # harvest_object.content = json.dumps(harvest_object_content)
+
         return True
 
     def import_stage(self, harvest_object):
@@ -319,6 +348,9 @@ class GeonorgeHarvester(SintefHarvesterBase):
 
             package_dict['id'] = package_dict.pop('Uuid')
             package_dict['title'] = package_dict.pop('Title')
+            package_dict['notes'] = package_dict.pop('Abstract')
+            # package_dict['author'] = package_dict['ContactMetadata'].pop('Name')
+            # package_dict['author_email'] = package_dict['ContactMetadata'].pop('Email')
 
             if package_dict.get('type') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')
@@ -471,14 +503,13 @@ class GeonorgeHarvester(SintefHarvesterBase):
                                     harvest_object, 'Import')
             log.error(e.error_dict)
         except Exception, e:
-            #self._save_object_error('%s' % e, harvest_object, 'Import')
-            log.error(e)
+            self._save_object_error('%s' % e, harvest_object, 'Import')
 
     def _search_for_datasets(self, remote_geonorge_base_url):
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'facets[0]name': 'theme',
                   'facets[0]value': 'Samferdsel',
-                  'offset': 1
+                  'offset': 1,
                   'limit': 10}
         pkg_dicts = []
 
@@ -539,4 +570,13 @@ class GeonorgeHarvester(SintefHarvesterBase):
         return http_response.read()
 
 class SearchError(Exception):
+    pass
+
+class RemoteResourceError(Exception):
+    pass
+
+class ContentFetchError(Exception):
+    pass
+
+class ContentNotFoundError(ContentFetchError):
     pass
