@@ -17,12 +17,13 @@ from ckan.lib.munge import munge_name
 from ckan.plugins import toolkit
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError
-from ckanext.sintef.harvesters.base import SintefHarvesterBase
 
 import logging
 log = logging.getLogger(__name__)
 
-class GeonorgeHarvester(SintefHarvesterBase):
+from ckanext.harvest.harvesters.base import HarvesterBase
+
+class GeonorgeHarvester(HarvesterBase):
     '''
     Geonorge Harvester
     '''
@@ -36,7 +37,7 @@ class GeonorgeHarvester(SintefHarvesterBase):
         return '/api/search/'
 
     def _get_geonorge_base_url(self):
-        return 'kartkatalog.geonorge.no'
+        return 'https://kartkatalog.geonorge.no'
 
     def info(self):
         '''
@@ -79,6 +80,7 @@ class GeonorgeHarvester(SintefHarvesterBase):
         else:
             self.config = {}
 
+
     def validate_config(self, config):
         '''
 
@@ -92,6 +94,71 @@ class GeonorgeHarvester(SintefHarvesterBase):
         :param harvest_object_id: Config string coming from the form
         :returns: A string with the validated configuration options
         '''
+        # DEBUGGING
+        log.debug('In GeonorgeHarvester - validate_config')
+
+        if not config:
+            return config
+
+        try:
+            config_obj = json.loads(config)
+
+            if 'api_version' in config_obj:
+                try:
+                    int(config_obj['api_version'])
+                except ValueError:
+                    raise ValueError('api_version must be an integer')
+
+            if 'theme' in config_obj:
+                if not isinstance(config_obj['theme'], list):
+                    raise ValueError('theme must be a *list* of themes')
+                if config_obj['theme'] and \
+                        not isinstance(config_obj['theme'][0], basestring):
+                    raise ValueError('theme must be a list of strings')
+
+            if 'organization' in config_obj:
+                if not isinstance(config_obj['organization'], list):
+                    raise ValueError('organization must be a *list* of organizations')
+                if config_obj['organization'] and \
+                        not isinstance(config_obj['organization'][0], basestring):
+                    raise ValueError('organization must be a list of strings')
+
+            if 'text' in config_obj:
+                if not isinstance(config_obj['text'], list):
+                    raise ValueError('text must be a *list* of texts')
+                if config_obj['text'] and \
+                        not isinstance(config_obj['text'][0], basestring):
+                    raise ValueError('text must be a list of strings')
+
+            if 'title' in config_obj:
+                if not isinstance(config_obj['title'], list):
+                    raise ValueError('title must be a *list* of titles')
+                if config_obj['title'] and \
+                        not isinstance(config_obj['title'][0], basestring):
+                    raise ValueError('title must be a list of strings')
+
+            if 'uuid' in config_obj:
+                if not isinstance(config_obj['uuid'], list):
+                    raise ValueError('uuid must be a *list* of uuids')
+                if config_obj['title'] and \
+                        not isinstance(config_obj['uuid'][0], basestring):
+                    raise ValueError('uuid must be a list of strings')
+
+
+            if 'type' in config_obj:
+                if not isinstance(config_obj['type'], list):
+                    raise ValueError('type must be a *list* of types')
+                if config_obj['type'] and \
+                        not isinstance(config_obj['type'][0], basestring):
+                    raise ValueError('type must be a list of strings')
+
+            config = json.dumps(config_obj)
+
+        except ValueError, e:
+            raise e
+
+        return config
+
 
     def get_original_url(self, harvest_object_id):
         '''
@@ -127,6 +194,32 @@ class GeonorgeHarvester(SintefHarvesterBase):
             log.debug('No URL could be found for Harvest Object with ID=\'' + harvest_object_id + '\'')
 
 
+    @classmethod
+    def _last_error_free_job(cls, harvest_job):
+        jobs = \
+            model.Session.query(HarvestJob) \
+                 .filter(HarvestJob.source == harvest_job.source) \
+                 .filter(HarvestJob.gather_started != None) \
+                 .filter(HarvestJob.status == 'Finished') \
+                 .filter(HarvestJob.id != harvest_job.id) \
+                 .filter(
+                     ~exists().where(
+                         HarvestGatherError.harvest_job_id == HarvestJob.id)) \
+                 .order_by(HarvestJob.gather_started.desc())
+        # now check them until we find one with no fetch/import errors
+        # (looping rather than doing sql, in case there are lots of objects
+        # and lots of jobs)
+
+        for job in jobs:
+            for obj in job.objects:
+                if obj.current is False and \
+                        obj.report_status != 'not modified':
+                    # unsuccessful, so go onto the next job
+                    break
+            else:
+                return job
+
+
     def gather_stage(self, harvest_job):
         '''
         The gather stage will receive a HarvestJob object and will be
@@ -158,64 +251,56 @@ class GeonorgeHarvester(SintefHarvesterBase):
         remote_geonorge_base_url = harvest_job.source.url.rstrip('/')
 
         # Filter in/out datasets from particular organizations
-        fq_terms = []
-        org_filter_include = self.config.get('organizations_filter_include', [])
-        org_filter_exclude = self.config.get('organizations_filter_exclude', [])
-        if org_filter_include:
-            fq_terms.append(' OR '.join(
-                'organization:%s' % org_name for org_name in org_filter_include))
-        elif org_filter_exclude:
-            fq_terms.extend(
-                '-organization:%s' % org_name for org_name in org_filter_exclude)
+        # This makes a list with lists of all possible search-combinations
+        # needed to search for everything specified in the config
+        # If it works, it ain't stupid.
+        def get_item_from_list(_list, index):
+            counter = 0
+            for item in _list:
+                if counter == index:
+                    return item
+                counter += 1
 
-        #Ideally we can request from the remote CKAN only those datasets
-        #modified since the last completely successful harvest.
-        last_error_free_job = False
-        #last_error_free_job = self._last_error_free_job(harvest_job)
-        log.debug('Last error-free job: %r', last_error_free_job)
-        if (last_error_free_job and
-                not self.config.get('force_all', False)):
-            get_all_packages = False
+        filter_include = {}
+        fq_terms_list_length = 1
+        for filter_item in self.config:
+            if filter_item in ['theme', 'organization', 'text', 'title', 'uuid', 'type']:
+                filter_include[filter_item] = self.config.get(filter_item, [])
+                fq_terms_list_length *= len(filter_include[filter_item])
+        fq_terms_list = [{} for i in range(fq_terms_list_length)]
 
-            # Request only the datasets modified since
-            last_time = last_error_free_job.gather_started
-            # Note: SOLR works in UTC, and gather_started is also UTC, so
-            # this should work as long as local and remote clocks are
-            # relatively accurate. Going back a little earlier, just in case.
-            get_changes_since = \
-                (last_time - datetime.timedelta(hours=1)).isoformat()
-            log.info('Searching for datasets modified since: %s UTC',
-                    get_changes_since)
+        switchnum_max = 1
+        filter_counter = 0
+        for filter_item in filter_include:
+            switchnum_counter = 0
+            search_counter = 0
+            for search in range(fq_terms_list_length):
+                if switchnum_counter == switchnum_max:
+                    search_counter += 1
+                    switchnum_counter = 0
+                switchnum_counter += 1
+                fq_terms_list[search][filter_item] = \
+                    filter_include[filter_item][search_counter \
+                        % len(filter_include[filter_item])]
+            temp_filter_item = get_item_from_list(filter_include, filter_counter)
+            if temp_filter_item is not None:
+                switchnum_max *= len(filter_include[temp_filter_item])
+            filter_counter += 1
 
-            fq_since_last_time = 'metadata_modified:[{since}Z TO *]' \
-                .format(since=get_changes_since)
 
-            try:
-                pkg_dicts = self._search_for_datasets(
-                    remote_geonorge_base_url,
-                    fq_terms + [fq_since_last_time])
-            except SearchError, e:
-                log.info('Searching for datasets changed since last time '
-                        'gave an error: %s', e)
-                get_all_packages = True
-
-            if not get_all_packages and not pkg_dicts:
-                log.info('No datasets have been updated on the remote '
-                        'CKAN instance since the last harvest job %s',
-                        last_time)
-                return None
 
         # Fall-back option - request all the datasets from the remote CKAN
         if get_all_packages:
             # Request all remote packages
             try:
-                pkg_dicts = self._search_for_datasets(remote_geonorge_base_url)
-                                                      #, fq_terms)
+                pkg_dicts = []
+                for fq_terms in fq_terms_list:
+                    pkg_dicts.extend(self._search_for_datasets(remote_geonorge_base_url, fq_terms))
             except SearchError, e:
                 log.info('Searching for all datasets gave an error: %s', e)
                 self._save_gather_error(
                     'Unable to search remote Geonorge for datasets:%s url:%s'
-                    'terms:%s' % (e, remote_geonorge_base_url, fq_terms),
+                    'terms:%s' % (e, remote_geonorge_base_url, fq_terms_list),
                     harvest_job)
                 return None
         if not pkg_dicts:
@@ -249,6 +334,7 @@ class GeonorgeHarvester(SintefHarvesterBase):
         except Exception, e:
             self._save_gather_error('%r' % e.message, harvest_job)
 
+
     def fetch_stage(self, harvest_object):
         '''
         The fetch stage will receive a HarvestObject object and will be
@@ -268,6 +354,7 @@ class GeonorgeHarvester(SintefHarvesterBase):
                   all, False if not successful
         '''
         log.debug('In GeonorgeHarvester fetch_stage')
+        log.debug(harvest_object.guid)
         return True
 
     def import_stage(self, harvest_object):
@@ -474,16 +561,24 @@ class GeonorgeHarvester(SintefHarvesterBase):
             #self._save_object_error('%s' % e, harvest_object, 'Import')
             log.error(e)
 
-    def _search_for_datasets(self, remote_geonorge_base_url):
+    def _search_for_datasets(self, remote_geonorge_base_url, fq_terms=None):
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
-        params = {'facets[0]name': 'theme',
-                  'facets[0]value': 'Samferdsel',
-                  'offset': 1
+        params = {'offset': 1,
                   'limit': 10}
+
+        fq_term_counter = 0
+        for fq_term in fq_terms:
+            params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
+            params.update({'facets[' + str(fq_term_counter) + ']value': fq_terms[fq_term]})
+            fq_term_counter += 1
+        param_keys_sorted = sorted(params)
         pkg_dicts = []
 
         while True:
-            url = base_search_url + '?' + urllib.urlencode(params)
+            url = base_search_url + '?'# + urllib.urlencode(params)
+            for param_key in param_keys_sorted:
+                url += urllib.urlencode({param_key: params[param_key]}) + '&'
+            url = url[:-1]
             log.debug('Searching for Geonorge datasets: %s', url)
             try:
                 content = self._get_content(url)
@@ -514,6 +609,7 @@ class GeonorgeHarvester(SintefHarvesterBase):
 
         return pkg_dicts
 
+
     def _get_content(self, url):
         http_request = urllib2.Request(url=url)
 
@@ -537,6 +633,7 @@ class GeonorgeHarvester(SintefHarvesterBase):
         except Exception, e:
             raise ContentFetchError('HTTP general exception: %s' % e)
         return http_response.read()
+
 
 class SearchError(Exception):
     pass
