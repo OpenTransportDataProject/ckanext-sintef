@@ -327,8 +327,6 @@ class GeonorgeHarvester(SintefHarvesterBase):
         '''
         log.debug('In GeonorgeHarvester import_stage')
 
-        log.debug(harvest_object.job.source.title)
-
         base_context = {'model': model, 'session': model.Session,
                         'user': None}
         if not harvest_object:
@@ -354,8 +352,7 @@ class GeonorgeHarvester(SintefHarvesterBase):
 
             package_dict['tags'] = []
             info = {
-                    'name': package_dict['Theme'],
-                    'display_name': package_dict['Theme']
+                    'name': package_dict.pop('Theme')
                     }
             package_dict['tags'].append(info)
 
