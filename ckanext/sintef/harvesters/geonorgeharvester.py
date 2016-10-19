@@ -349,8 +349,15 @@ class GeonorgeHarvester(SintefHarvesterBase):
             package_dict['id'] = package_dict.pop('Uuid')
             package_dict['title'] = package_dict.pop('Title')
             package_dict['notes'] = package_dict.pop('Abstract')
-            # package_dict['author'] = package_dict['ContactMetadata'].pop('Name')
-            # package_dict['author_email'] = package_dict['ContactMetadata'].pop('Email')
+            package_dict['url'] = package_dict.pop('ShowDetailsUrl')
+            package_dict['isopen'] = package_dict.pop('IsOpenData')
+
+            package_dict['tags'] = []
+            info = {
+                    'name': package_dict['Theme'],
+                    'display_name': package_dict['Theme']
+                    }
+            package_dict['tags'].append(info)
 
             if package_dict.get('type') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')
