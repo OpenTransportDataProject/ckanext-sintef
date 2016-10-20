@@ -598,9 +598,11 @@ class GeonorgeHarvester(HarvesterBase):
     def _search_for_datasets(self, remote_geonorge_base_url, fq_terms=None):
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'offset': 1,
-                  'limit': 10}
+                  'limit': 10,
+                  'facets[0]name': 'type',
+                  'facets[0]value': 'dataset'}
 
-        fq_term_counter = 0
+        fq_term_counter = 1
         for fq_term in fq_terms:
             params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
             params.update({'facets[' + str(fq_term_counter) + ']value': "%s" % (fq_terms[fq_term])})
@@ -633,8 +635,6 @@ class GeonorgeHarvester(HarvesterBase):
                 raise SearchError('Response JSON did not contain '
                                   'results: %r' % response_dict)
             pkg_dicts.extend(pkg_dicts_page)
-
-            log.debug(len(pkg_dicts_page))
 
             if len(pkg_dicts_page) == 0:
                 break
