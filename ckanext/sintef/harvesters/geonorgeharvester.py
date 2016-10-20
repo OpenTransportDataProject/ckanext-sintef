@@ -7,6 +7,7 @@ import urllib2
 import httplib
 import datetime
 import socket
+import re
 
 from sqlalchemy import exists
 
@@ -72,6 +73,24 @@ class GeonorgeHarvester(HarvesterBase):
             'title': 'Geonorge Server',
             'description': 'Harvests from Geonorge instances.'
         }
+
+    def _make_lower_and_alphanumeric(self, s):
+        s_dict = {' ': '-',
+                  u'\u00E6': 'ae',
+                  u'\u00C6': 'ae',
+                  u'\u00F8': 'oe',
+                  u'\u00D8': 'oe',
+                  u'\u00E5': 'aa',
+                  u'\u00C5': 'aa'}
+
+        for key in s_dict:
+            s = s.replace(key, s_dict[key])
+
+        s = s.lower()
+
+        log.debug('ALPHANUMERIC: %s', s)
+
+        return re.sub(r'[^A-Za-z0-9\-\_]+', '', s)
 
     def _set_config(self, config_str):
         if config_str:
@@ -434,13 +453,17 @@ class GeonorgeHarvester(HarvesterBase):
             package_dict['notes'] = package_dict.pop('Abstract')
             package_dict['url'] = package_dict.pop('ShowDetailsUrl')
             package_dict['isopen'] = package_dict.pop('IsOpenData')
-            package_dict['owner_org'] = package_dict.pop('Organization').lower()
+
+            organization_name = package_dict.pop('Organization')
+
+            package_dict['owner_org_name'] = organization_name
+
+            log.debug('OWNER_ORG_NAME: %s', package_dict['owner_org_name'])
+
+            package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
             package_dict['tags'] = []
-            info = {
-                    'name': package_dict.pop('Theme')
-                    }
-            package_dict['tags'].append(info)
+            package_dict['tags'].append({'name': package_dict.pop('Theme')})
 
             if package_dict.get('type') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')
@@ -515,15 +538,9 @@ class GeonorgeHarvester(HarvesterBase):
                         log.info('Organization %s is not available', remote_org)
                         if remote_orgs == 'create':
                             try:
-                                org = {'name': package_dict['owner_org']}
+                                org = {'name': package_dict['owner_org'],
+                                       'title': package_dict['owner_org_name']}
 
-                                log.debug('ORG DICT: %s', org)
-
-                                # org['users'] = []
-                                # org['users'].append({'name': '9015271d-80e3-4f63-a356-22415825a746'})
-
-                                # for key in ['packages', 'created', 'users', 'groups', 'tags', 'extras', 'display_name', 'type']:
-                                #     org.pop(key, None)
                                 get_action('organization_create')(base_context.copy(), org)
                                 log.info('Organization %s has been newly created', remote_org)
                                 validated_org = org['id']
