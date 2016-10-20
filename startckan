@@ -1,0 +1,24 @@
+. /usr/lib/ckan/default/bin/activate
+sudo service jetty8 start
+cd /usr/lib/ckan/default/src/ckan
+paster serve /etc/ckan/default/development.ini
+
+
+GATHER
+paster --plugin=ckanext-harvest harvester gather_consumer --config=/etc/ckan/default/development.ini
+
+FETCH
+paster --plugin=ckanext-harvest harvester fetch_consumer --config=/etc/ckan/default/development.ini
+
+IMPORT
+paster --plugin=ckanext-harvest harvester run --config=/etc/ckan/default/development.ini
+
+
+
+CLEAN CKAN DATABASE
+. /usr/lib/ckan/default/bin/activate
+cd /usr/lib/ckan/default/src/ckan
+paster db clean -c /etc/ckan/default/development.ini
+paster db init -c /etc/ckan/default/development.ini
+paster sysadmin add sysadmin -c /etc/ckan/default/development.ini
+^ password: 'password'
