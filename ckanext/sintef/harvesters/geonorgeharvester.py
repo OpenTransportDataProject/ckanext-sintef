@@ -87,9 +87,6 @@ class GeonorgeHarvester(HarvesterBase):
             s = s.replace(key, s_dict[key])
 
         s = s.lower()
-
-        log.debug('ALPHANUMERIC: %s', s)
-
         return re.sub(r'[^A-Za-z0-9\-\_]+', '', s)
 
     def _set_config(self, config_str):
@@ -455,11 +452,7 @@ class GeonorgeHarvester(HarvesterBase):
             package_dict['isopen'] = package_dict.pop('IsOpenData')
 
             organization_name = package_dict.pop('Organization')
-
             package_dict['owner_org_name'] = organization_name
-
-            log.debug('OWNER_ORG_NAME: %s', package_dict['owner_org_name'])
-
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
             package_dict['tags'] = []
