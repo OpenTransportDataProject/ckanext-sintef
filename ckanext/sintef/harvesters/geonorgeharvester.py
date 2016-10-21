@@ -31,9 +31,6 @@ class GeonorgeHarvester(HarvesterBase):
     implements(IHarvester)
     config = None
 
-    api_version = 2
-    action_api_version = 3
-
     def _get_search_api_offset(self):
         return '/api/search/'
 
@@ -92,8 +89,6 @@ class GeonorgeHarvester(HarvesterBase):
     def _set_config(self, config_str):
         if config_str:
             self.config = json.loads(config_str)
-            if 'api_version' in self.config:
-                self.api_version = int(self.config['api_version'])
 
             log.debug('Using config: %r', self.config)
         else:
@@ -121,12 +116,6 @@ class GeonorgeHarvester(HarvesterBase):
 
         try:
             config_obj = json.loads(config)
-
-            if 'api_version' in config_obj:
-                try:
-                    int(config_obj['api_version'])
-                except ValueError:
-                    raise ValueError('api_version must be an integer')
 
             if 'theme' in config_obj:
                 if not isinstance(config_obj['theme'], list):
@@ -445,22 +434,21 @@ class GeonorgeHarvester(HarvesterBase):
         try:
             package_dict = json.loads(harvest_object.content)
 
+            if package_dict.get('type') == 'harvest':
+                log.warn('Remote dataset is a harvest source, ignoring...')
+                return True
+
             package_dict['id'] = package_dict.pop('Uuid')
             package_dict['title'] = package_dict.pop('Title')
             package_dict['notes'] = package_dict.pop('Abstract')
             package_dict['url'] = package_dict.pop('ShowDetailsUrl')
             package_dict['isopen'] = package_dict.pop('IsOpenData')
 
-            organization_name = package_dict.pop('Organization')
-            package_dict['owner_org_name'] = organization_name
+            organization_name = package_dict.get('Organization')
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
             package_dict['tags'] = []
             package_dict['tags'].append({'name': package_dict.pop('Theme')})
-
-            if package_dict.get('type') == 'harvest':
-                log.warn('Remote dataset is a harvest source, ignoring...')
-                return True
 
             # Set default tags if needed
             default_tags = self.config.get('default_tags', [])
@@ -469,6 +457,12 @@ class GeonorgeHarvester(HarvesterBase):
                     package_dict['tags'] = []
                 package_dict['tags'].extend(
                     [t for t in default_tags if t not in package_dict['tags']])
+
+            if package_dict.get('DistributionProtocol') == 'WWW:DOWNLOAD-1.0-http--download':
+                package_dict['resources'] = []
+                package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
+                                                  'format': 'HTML',
+                                                  'mimetype': 'text/html'})
 
             # remote_groups = self.config.get('remote_groups', None)
             # if not remote_groups in ('only_local', 'create'):
@@ -509,7 +503,10 @@ class GeonorgeHarvester(HarvesterBase):
             source_dataset = get_action('package_show')(base_context.copy(), {'id': harvest_object.source.id})
             local_org = source_dataset.get('owner_org')
 
-            remote_orgs = 'create'
+            remote_orgs = self.config.get('remote_orgs', None)
+
+            if remote_orgs is not None:
+                remote_orgs = self.config.get('remote_orgs', None)[0]
 
             if not remote_orgs in ('only_local', 'create'):
                 # Assign dataset to the source organization
@@ -526,15 +523,20 @@ class GeonorgeHarvester(HarvesterBase):
                     try:
                         data_dict = {'id': remote_org}
                         org = get_action('organization_show')(base_context.copy(), data_dict)
+                        if org.get('state') == 'deleted':
+                            patch_org = {'id': org.get('id'),
+                                         'state': 'active'}
+                            get_action('organization_patch')(base_context.copy(), patch_org)
                         validated_org = org['id']
                     except NotFound, e:
                         log.info('Organization %s is not available', remote_org)
                         if remote_orgs == 'create':
                             try:
-                                org = {'name': package_dict['owner_org'],
-                                       'title': package_dict['owner_org_name']}
+                                new_org = {'name': package_dict.get('owner_org'),
+                                       'title': organization_name,
+                                       'image_url': package_dict.get('OrganizationLogo')}
 
-                                get_action('organization_create')(base_context.copy(), org)
+                                org = get_action('organization_create')(base_context.copy(), new_org)
                                 log.info('Organization %s has been newly created', remote_org)
                                 validated_org = org['id']
                             except (RemoteResourceError, ValidationError):
@@ -608,9 +610,11 @@ class GeonorgeHarvester(HarvesterBase):
     def _search_for_datasets(self, remote_geonorge_base_url, fq_terms=None):
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'offset': 1,
-                  'limit': 10}
+                  'limit': 10,
+                  'facets[0]name': 'type',
+                  'facets[0]value': 'dataset'}
 
-        fq_term_counter = 0
+        fq_term_counter = 1
         for fq_term in fq_terms:
             params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
             params.update({'facets[' + str(fq_term_counter) + ']value': fq_terms[fq_term]})
@@ -644,8 +648,6 @@ class GeonorgeHarvester(HarvesterBase):
                                   'results: %r' % response_dict)
             pkg_dicts.extend(pkg_dicts_page)
 
-            log.debug(len(pkg_dicts_page))
-
             if len(pkg_dicts_page) == 0:
                 break
 
@@ -656,10 +658,6 @@ class GeonorgeHarvester(HarvesterBase):
 
     def _get_content(self, url):
         http_request = urllib2.Request(url=url)
-
-        api_key = self.config.get('api_key')
-        if api_key:
-            http_request.add_header('Authorization', api_key)
 
         try:
             http_response = urllib2.urlopen(http_request)
