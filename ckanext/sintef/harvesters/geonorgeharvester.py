@@ -7,6 +7,7 @@ import urllib2
 import httplib
 import datetime
 import socket
+import re
 
 from sqlalchemy import exists
 
