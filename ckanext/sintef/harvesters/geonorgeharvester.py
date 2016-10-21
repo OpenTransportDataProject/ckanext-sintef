@@ -7,7 +7,6 @@ import urllib2
 import httplib
 import datetime
 import socket
-import re
 
 from sqlalchemy import exists
 
@@ -70,21 +69,6 @@ class GeonorgeHarvester(HarvesterBase):
             'title': 'Geonorge Server',
             'description': 'Harvests from Geonorge instances.'
         }
-
-    def _make_lower_and_alphanumeric(self, s):
-        s_dict = {' ': '-',
-                  u'\u00E6': 'ae',
-                  u'\u00C6': 'ae',
-                  u'\u00F8': 'oe',
-                  u'\u00D8': 'oe',
-                  u'\u00E5': 'aa',
-                  u'\u00C5': 'aa'}
-
-        for key in s_dict:
-            s = s.replace(key, s_dict[key])
-
-        s = s.lower()
-        return re.sub(r'[^A-Za-z0-9\-\_]+', '', s)
 
     def _set_config(self, config_str):
         if config_str:
@@ -448,7 +432,10 @@ class GeonorgeHarvester(HarvesterBase):
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
             package_dict['tags'] = []
-            package_dict['tags'].append({'name': package_dict.pop('Theme')})
+            info = {
+                    'name': package_dict.pop('Theme')
+                    }
+            package_dict['tags'].append(info)
 
             # Set default tags if needed
             default_tags = self.config.get('default_tags', [])
@@ -617,15 +604,15 @@ class GeonorgeHarvester(HarvesterBase):
         fq_term_counter = 1
         for fq_term in fq_terms:
             params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
-            params.update({'facets[' + str(fq_term_counter) + ']value': fq_terms[fq_term]})
+            params.update({'facets[' + str(fq_term_counter) + ']value': "%s" % (fq_terms[fq_term])})
             fq_term_counter += 1
         param_keys_sorted = sorted(params)
         pkg_dicts = []
 
         while True:
-            url = base_search_url + '?'# + urllib.urlencode(params)
+            url = base_search_url + '?'
             for param_key in param_keys_sorted:
-                url += urllib.urlencode({param_key: params[param_key]}) + '&'
+                url += urllib.urlencode({param_key: "%s" % (params[param_key])}) + '&'
             url = url[:-1]
             log.debug('Searching for Geonorge datasets: %s', url)
             try:
