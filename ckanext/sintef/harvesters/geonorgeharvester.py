@@ -70,6 +70,21 @@ class GeonorgeHarvester(HarvesterBase):
             'description': 'Harvests from Geonorge instances.'
         }
 
+    def _make_lower_and_alphanumeric(self, s):
+        s_dict = {' ': '-',
+                  u'\u00E6': 'ae',
+                  u'\u00C6': 'ae',
+                  u'\u00F8': 'oe',
+                  u'\u00D8': 'oe',
+                  u'\u00E5': 'aa',
+                  u'\u00C5': 'aa'}
+
+        for key in s_dict:
+            s = s.replace(key, s_dict[key])
+
+        s = s.lower()
+        return re.sub(r'[^A-Za-z0-9\-\_]+', '', s)
+
     def _set_config(self, config_str):
         if config_str:
             self.config = json.loads(config_str)
