@@ -258,6 +258,8 @@ class GeonorgeHarvester(HarvesterBase):
         # Get source URL
         remote_geonorge_base_url = harvest_job.source.url.rstrip('/')
 
+        pkg_dicts = []
+
         # Filter in/out datasets from particular organizations
         # This makes a list with lists of all possible search-combinations
         # needed to search for everything specified in the config
@@ -295,13 +297,53 @@ class GeonorgeHarvester(HarvesterBase):
                 switchnum_max *= len(filter_include[temp_filter_item])
             filter_counter += 1
 
+        # Ideally we can request from the remote CKAN only those datasets
+        # modified since the last completely successful harvest.
+        last_error_free_job = self._last_error_free_job(harvest_job)
+        log.debug('Last error-free job: %r', last_error_free_job)
+        if (last_error_free_job and
+                not self.config.get('force_all', False)):
+            get_all_packages = False
+
+            # Request only the datasets modified since
+            last_time = last_error_free_job.gather_started
+            # Note: SOLR works in UTC, and gather_started is also UTC, so
+            # this should work as long as local and remote clocks are
+            # relatively accurate. Going back a little earlier, just in case.
+            get_changes_since = \
+                (last_time - datetime.timedelta(hours=1)).isoformat()
+            log.info('Searching for datasets modified since: %s UTC',
+                     get_changes_since)
+
+            try:
+                for fq_terms in fq_terms_list:
+                    pkg_dicts.extend(self._search_for_datasets(
+                        remote_geonorge_base_url,
+                        fq_terms))
+
+                log.debug('DATE: %s', get_changes_since)
+
+                pkg_dicts = \
+                    self._check_if_datasets_are_modified(pkg_dicts,
+                                                    remote_geonorge_base_url,
+                                                    get_changes_since)
+
+            except SearchError, e:
+                log.info('Searching for datasets changed since last time '
+                         'gave an error: %s', e)
+                get_all_packages = True
+
+            if not get_all_packages and not pkg_dicts:
+                log.info('No datasets have been updated on the remote '
+                         'CKAN instance since the last harvest job %s',
+                         last_time)
+                return None
 
 
         # Fall-back option - request all the datasets from the remote CKAN
         if get_all_packages:
             # Request all remote packages
             try:
-                pkg_dicts = []
                 for fq_terms in fq_terms_list:
                     pkg_dicts.extend(self._search_for_datasets(remote_geonorge_base_url, fq_terms))
             except SearchError, e:
@@ -464,6 +506,7 @@ class GeonorgeHarvester(HarvesterBase):
             if package_dict.get('DistributionProtocol') == 'WWW:DOWNLOAD-1.0-http--download':
                 package_dict['resources'] = []
                 package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
+                                                  'name': 'Download page',
                                                   'format': 'HTML',
                                                   'mimetype': 'text/html'})
 
@@ -658,6 +701,58 @@ class GeonorgeHarvester(HarvesterBase):
 
         return pkg_dicts
 
+    def _check_if_datasets_are_modified(self, pkg_dicts, remote_geonorge_base_url, get_changes_since):
+        base_getdata_url = remote_geonorge_base_url + self._get_getdata_api_offset()
+        new_pkg_dicts = list(pkg_dicts)
+
+        for pkg_dict in pkg_dicts:
+            url = base_getdata_url + pkg_dict['Uuid']
+            try:
+                content = self._get_content(url)
+            except ContentFetchError, e:
+                raise SearchError('Error sending request to getdata remote '
+                                  'Geonorge instance %s url %r. Error: %s' %
+                                  (remote_geonorge_base_url, url, e))
+            if content is not None:
+                try:
+                    response_dict = json.loads(content)
+                except ValueError:
+                    raise SearchError('Response from remote Geonorge was not JSON: %r'
+                                      % content)
+            if response_dict.get('DateMetadataUpdated') < get_changes_since:
+                log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
+                          response_dict.get('Uuid'))
+                new_pkg_dicts.remove(pkg_dict)
+
+        return new_pkg_dicts
+
+
+    @classmethod
+    def _last_error_free_job(cls, harvest_job):
+        # TODO weed out cancelled jobs somehow.
+        # look for jobs with no gather errors
+        jobs = \
+            model.Session.query(HarvestJob) \
+                 .filter(HarvestJob.source == harvest_job.source) \
+                 .filter(HarvestJob.gather_started != None) \
+                 .filter(HarvestJob.status == 'Finished') \
+                 .filter(HarvestJob.id != harvest_job.id) \
+                 .filter(
+                     ~exists().where(
+                         HarvestGatherError.harvest_job_id == HarvestJob.id)) \
+                 .order_by(HarvestJob.gather_started.desc())
+        # now check them until we find one with no fetch/import errors
+        # (looping rather than doing sql, in case there are lots of objects
+        # and lots of jobs)
+        for job in jobs:
+            for obj in job.objects:
+                if obj.current is False and \
+                        obj.report_status != 'not modified':
+                    # unsuccessful, so go onto the next job
+                    break
+            else:
+                return job
+
 
     def _get_content(self, url):
         http_request = urllib2.Request(url=url)
@@ -668,7 +763,8 @@ class GeonorgeHarvester(HarvesterBase):
             if e.getcode() == 404:
                 raise ContentNotFoundError('HTTP error: %s' % e.code)
             else:
-                raise ContentFetchError('HTTP error: %s' % e.code)
+                return None
+                # raise ContentFetchError('HTTP error: %s' % e.code)
         except urllib2.URLError, e:
             raise ContentFetchError('URL error: %s' % e.reason)
         except httplib.HTTPException, e:
