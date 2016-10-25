@@ -87,6 +87,7 @@ class GeonorgeHarvester(HarvesterBase):
             'description': 'Harvests from Geonorge instances.'
         }
 
+
     def _make_lower_and_alphanumeric(self, s):
         s_dict = {' ': '-',
                   u'\u00E6': 'ae',
@@ -101,6 +102,7 @@ class GeonorgeHarvester(HarvesterBase):
 
         s = s.lower()
         return re.sub(r'[^A-Za-z0-9\-\_]+', '', s)
+
 
     def _set_config(self, config_str):
         if config_str:
@@ -445,10 +447,8 @@ class GeonorgeHarvester(HarvesterBase):
         # log.debug('HARVEST_OBJECT_FETCH_UPDATE: %s', harvest_object_content)
         #
         # harvest_object.content = json.dumps(harvest_object_content)
-        log.debug('In GeonorgeHarvester fetch_stage')
-        log.debug('UUID = %s' % harvest_object.id)
-        # log.debug(harvest_object.content.get('DistributionProtocol'))
         return True
+
 
     def import_stage(self, harvest_object):
         '''
@@ -717,6 +717,7 @@ class GeonorgeHarvester(HarvesterBase):
         except Exception, e:
             self._save_object_error('%s' % e, harvest_object, 'Import')
 
+
     def _search_for_datasets(self, remote_geonorge_base_url, fq_terms=None):
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'offset': 1,
@@ -764,6 +765,7 @@ class GeonorgeHarvester(HarvesterBase):
             params['offset'] += params['limit']
 
         return pkg_dicts
+
 
     def _check_if_datasets_are_modified(self, pkg_dicts, remote_geonorge_base_url, get_changes_since):
         base_getdata_url = remote_geonorge_base_url + self._get_getdata_api_offset()
