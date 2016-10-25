@@ -31,14 +31,30 @@ class GeonorgeHarvester(HarvesterBase):
     implements(IHarvester)
     config = None
 
+
     def _get_search_api_offset(self):
         return '/api/search/'
+
 
     def _get_getdata_api_offset(self):
         return '/api/getdata/'
 
+
+    def _get_capabilities_api_offset(self):
+        return '/api/capabilities/'
+
+
+    def _get_order_api_offset(self):
+        return '/api/order/'
+
+
     def _get_geonorge_base_url(self):
         return 'https://kartkatalog.geonorge.no'
+
+
+    def _get_geonorge_download_url(self):
+        return 'http://nedlasting.geonorge.no'
+
 
     def info(self):
         '''
@@ -429,6 +445,9 @@ class GeonorgeHarvester(HarvesterBase):
         # log.debug('HARVEST_OBJECT_FETCH_UPDATE: %s', harvest_object_content)
         #
         # harvest_object.content = json.dumps(harvest_object_content)
+        log.debug('In GeonorgeHarvester fetch_stage')
+        log.debug('UUID = %s' % harvest_object.id)
+        # log.debug(harvest_object.content.get('DistributionProtocol'))
         return True
 
     def import_stage(self, harvest_object):
@@ -503,12 +522,57 @@ class GeonorgeHarvester(HarvesterBase):
                 package_dict['tags'].extend(
                     [t for t in default_tags if t not in package_dict['tags']])
 
+
             if package_dict.get('DistributionProtocol') == 'WWW:DOWNLOAD-1.0-http--download':
                 package_dict['resources'] = []
                 package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
                                                   'name': 'Download page',
                                                   'format': 'HTML',
                                                   'mimetype': 'text/html'})
+            # Uncomment this to add resources for datasets with distributionprotocol "GEONORGE:DOWNLOAD":
+            # elif package_dict.get('DistributionProtocol') == 'GEONORGE:DOWNLOAD':
+            #     try:
+            #         package_dict['resources'] = []
+            #
+            #         log.info('Making orderdata for dataset %s' % package_dict['id'])
+            #         payload = {"email": "bruker@epost.no",
+            #                 "orderLines": [{"metadataUuid": package_dict['id']}]}
+            #         url = self._get_geonorge_download_url() + self._get_capabilities_api_offset() + package_dict['id']
+            #         capabilities_content = self._get_content(url)
+            #         capabilities_content_json = json.loads(capabilities_content)
+            #         resources_orderdata = {}
+            #         for capability in capabilities_content_json["_links"]:
+            #             cap_link = capability["href"]
+            #             capability_description = json.dumps(cap_link).split("/")
+            #             resource = capability_description[len(capability_description) - 2]
+            #             if resource in ["area", "format", "projection"]:
+            #                 resources_orderdata["%ss" % resource] = cap_link
+            #         for rsrc in resources_orderdata:
+            #             resource_content = self._get_content(resources_orderdata[rsrc])
+            #             resource_content_json = json.loads(resource_content)
+            #             if rsrc == "areas":
+            #                 areas_json = []
+            #                 for area in resource_content_json:
+            #                     last_index = len(areas_json)
+            #                     areas_json.append({})
+            #                     for field in area:
+            #                         if field in ["code", "type", "name"]:
+            #                             areas_json[last_index][field] = area[field]
+            #                 resource_content_json = areas_json
+            #             payload['orderLines'][0][rsrc] = resource_content_json
+            #         log.info('Orderdata was successfully made!')
+            #
+            #         log.info('Using orderdata to get resources.')
+            #         order_url = self._get_geonorge_download_url() + self._get_order_api_offset()
+            #         order_content = self._get_content(order_url, payload)
+            #         order_content_json = json.loads(order_content)
+            #         log.debug('Inserting files into resources.')
+            #         for files in order_content_json["files"]:
+            #             package_dict['resources'].append({'url': files["downloadUrl"],
+            #                                               'name': files["name"]})
+            #         log.info('Resources added.')
+            #     except Exception, e:
+            #         log.error(e.message)
 
             # remote_groups = self.config.get('remote_groups', None)
             # if not remote_groups in ('only_local', 'create'):
@@ -754,11 +818,16 @@ class GeonorgeHarvester(HarvesterBase):
                 return job
 
 
-    def _get_content(self, url):
+    def _get_content(self, url, data=None):
         http_request = urllib2.Request(url=url)
 
         try:
-            http_response = urllib2.urlopen(http_request)
+            if not data:
+                http_response = urllib2.urlopen(http_request)
+            else:
+                http_request.add_header('Content-Type', 'application/json')
+                params = json.dumps(data)
+                http_response = urllib2.urlopen(http_request, data=params)
         except urllib2.HTTPError, e:
             if e.getcode() == 404:
                 raise ContentNotFoundError('HTTP error: %s' % e.code)
