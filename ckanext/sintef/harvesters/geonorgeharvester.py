@@ -246,6 +246,135 @@ class GeonorgeHarvester(HarvesterBase):
                 return job
 
 
+    def _search_for_datasets(self, remote_geonorge_base_url, fq_terms=None):
+        base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
+        params = {'offset': 1,
+                  'limit': 10,
+                  'facets[0]name': 'type',
+                  'facets[0]value': 'dataset'}
+
+        fq_term_counter = 1
+        for fq_term in fq_terms:
+            params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
+            params.update({'facets[' + str(fq_term_counter) + ']value': "%s" % (fq_terms[fq_term])})
+            fq_term_counter += 1
+        param_keys_sorted = sorted(params)
+        pkg_dicts = []
+
+        while True:
+            url = base_search_url + '?'
+            for param_key in param_keys_sorted:
+                url += urllib.urlencode({param_key: "%s" % (params[param_key])}) + '&'
+            url = url[:-1]
+            log.debug('Searching for Geonorge datasets: %s', url)
+            try:
+                content = self._get_content(url)
+            except ContentFetchError, e:
+                raise SearchError('Error sending request to search remote '
+                                  'Geonorge instance %s url %r. Error: %s' %
+                                  (remote_geonorge_base_url, url, e))
+
+            try:
+                response_dict = json.loads(content)
+            except ValueError:
+                raise SearchError('Response from remote Geonorge was not JSON: %r'
+                                  % content)
+
+            try:
+                pkg_dicts_page = response_dict.get('Results', [])
+            except ValueError:
+                raise SearchError('Response JSON did not contain '
+                                  'results: %r' % response_dict)
+            pkg_dicts.extend(pkg_dicts_page)
+
+            if len(pkg_dicts_page) == 0:
+                break
+
+            params['offset'] += params['limit']
+
+        return pkg_dicts
+
+
+    def _check_if_datasets_are_modified(self, pkg_dicts, remote_geonorge_base_url, get_changes_since):
+        base_getdata_url = remote_geonorge_base_url + self._get_getdata_api_offset()
+        new_pkg_dicts = list(pkg_dicts)
+
+        for pkg_dict in pkg_dicts:
+            url = base_getdata_url + pkg_dict['Uuid']
+            try:
+                content = self._get_content(url)
+            except ContentFetchError, e:
+                raise SearchError('Error sending request to getdata remote '
+                                  'Geonorge instance %s url %r. Error: %s' %
+                                  (remote_geonorge_base_url, url, e))
+            if content is not None:
+                try:
+                    response_dict = json.loads(content)
+                except ValueError:
+                    raise SearchError('Response from remote Geonorge was not JSON: %r'
+                                      % content)
+            if response_dict.get('DateMetadataUpdated') < get_changes_since:
+                log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
+                          response_dict.get('Uuid'))
+                new_pkg_dicts.remove(pkg_dict)
+
+        return new_pkg_dicts
+
+
+    @classmethod
+    def _last_error_free_job(cls, harvest_job):
+        # TODO weed out cancelled jobs somehow.
+        # look for jobs with no gather errors
+        jobs = \
+            model.Session.query(HarvestJob) \
+                 .filter(HarvestJob.source == harvest_job.source) \
+                 .filter(HarvestJob.gather_started != None) \
+                 .filter(HarvestJob.status == 'Finished') \
+                 .filter(HarvestJob.id != harvest_job.id) \
+                 .filter(
+                     ~exists().where(
+                         HarvestGatherError.harvest_job_id == HarvestJob.id)) \
+                 .order_by(HarvestJob.gather_started.desc())
+        # now check them until we find one with no fetch/import errors
+        # (looping rather than doing sql, in case there are lots of objects
+        # and lots of jobs)
+        for job in jobs:
+            for obj in job.objects:
+                if obj.current is False and \
+                        obj.report_status != 'not modified':
+                    # unsuccessful, so go onto the next job
+                    break
+            else:
+                return job
+
+
+    def _get_content(self, url, data=None):
+        http_request = urllib2.Request(url=url)
+
+        try:
+            if not data:
+                http_response = urllib2.urlopen(http_request)
+            else:
+                http_request.add_header('Content-Type', 'application/json')
+                params = json.dumps(data)
+                http_response = urllib2.urlopen(http_request, data=params)
+        except urllib2.HTTPError, e:
+            if e.getcode() == 404:
+                raise ContentNotFoundError('HTTP error: %s' % e.code)
+            else:
+                return None
+                # raise ContentFetchError('HTTP error: %s' % e.code)
+        except urllib2.URLError, e:
+            raise ContentFetchError('URL error: %s' % e.reason)
+        except httplib.HTTPException, e:
+            raise ContentFetchError('HTTP Exception: %s' % e)
+        except socket.error, e:
+            raise ContentFetchError('HTTP socket error: %s' % e)
+        except Exception, e:
+            raise ContentFetchError('HTTP general exception: %s' % e)
+        return http_response.read()
+
+
     def gather_stage(self, harvest_job):
         '''
         The gather stage will receive a HarvestJob object and will be
@@ -716,136 +845,6 @@ class GeonorgeHarvester(HarvesterBase):
             log.error(e.error_dict)
         except Exception, e:
             self._save_object_error('%s' % e, harvest_object, 'Import')
-
-
-    def _search_for_datasets(self, remote_geonorge_base_url, fq_terms=None):
-        base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
-        params = {'offset': 1,
-                  'limit': 10,
-                  'facets[0]name': 'type',
-                  'facets[0]value': 'dataset'}
-
-        fq_term_counter = 1
-        for fq_term in fq_terms:
-            params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
-            params.update({'facets[' + str(fq_term_counter) + ']value': "%s" % (fq_terms[fq_term])})
-            fq_term_counter += 1
-        param_keys_sorted = sorted(params)
-        pkg_dicts = []
-
-        while True:
-            url = base_search_url + '?'
-            for param_key in param_keys_sorted:
-                url += urllib.urlencode({param_key: "%s" % (params[param_key])}) + '&'
-            url = url[:-1]
-            log.debug('Searching for Geonorge datasets: %s', url)
-            try:
-                content = self._get_content(url)
-            except ContentFetchError, e:
-                raise SearchError('Error sending request to search remote '
-                                  'Geonorge instance %s url %r. Error: %s' %
-                                  (remote_geonorge_base_url, url, e))
-
-            try:
-                response_dict = json.loads(content)
-            except ValueError:
-                raise SearchError('Response from remote Geonorge was not JSON: %r'
-                                  % content)
-
-            try:
-                pkg_dicts_page = response_dict.get('Results', [])
-            except ValueError:
-                raise SearchError('Response JSON did not contain '
-                                  'results: %r' % response_dict)
-            pkg_dicts.extend(pkg_dicts_page)
-
-            if len(pkg_dicts_page) == 0:
-                break
-
-            params['offset'] += params['limit']
-
-        return pkg_dicts
-
-
-    def _check_if_datasets_are_modified(self, pkg_dicts, remote_geonorge_base_url, get_changes_since):
-        base_getdata_url = remote_geonorge_base_url + self._get_getdata_api_offset()
-        new_pkg_dicts = list(pkg_dicts)
-
-        for pkg_dict in pkg_dicts:
-            url = base_getdata_url + pkg_dict['Uuid']
-            try:
-                content = self._get_content(url)
-            except ContentFetchError, e:
-                raise SearchError('Error sending request to getdata remote '
-                                  'Geonorge instance %s url %r. Error: %s' %
-                                  (remote_geonorge_base_url, url, e))
-            if content is not None:
-                try:
-                    response_dict = json.loads(content)
-                except ValueError:
-                    raise SearchError('Response from remote Geonorge was not JSON: %r'
-                                      % content)
-            if response_dict.get('DateMetadataUpdated') < get_changes_since:
-                log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
-                          response_dict.get('Uuid'))
-                new_pkg_dicts.remove(pkg_dict)
-
-        return new_pkg_dicts
-
-
-    @classmethod
-    def _last_error_free_job(cls, harvest_job):
-        # TODO weed out cancelled jobs somehow.
-        # look for jobs with no gather errors
-        jobs = \
-            model.Session.query(HarvestJob) \
-                 .filter(HarvestJob.source == harvest_job.source) \
-                 .filter(HarvestJob.gather_started != None) \
-                 .filter(HarvestJob.status == 'Finished') \
-                 .filter(HarvestJob.id != harvest_job.id) \
-                 .filter(
-                     ~exists().where(
-                         HarvestGatherError.harvest_job_id == HarvestJob.id)) \
-                 .order_by(HarvestJob.gather_started.desc())
-        # now check them until we find one with no fetch/import errors
-        # (looping rather than doing sql, in case there are lots of objects
-        # and lots of jobs)
-        for job in jobs:
-            for obj in job.objects:
-                if obj.current is False and \
-                        obj.report_status != 'not modified':
-                    # unsuccessful, so go onto the next job
-                    break
-            else:
-                return job
-
-
-    def _get_content(self, url, data=None):
-        http_request = urllib2.Request(url=url)
-
-        try:
-            if not data:
-                http_response = urllib2.urlopen(http_request)
-            else:
-                http_request.add_header('Content-Type', 'application/json')
-                params = json.dumps(data)
-                http_response = urllib2.urlopen(http_request, data=params)
-        except urllib2.HTTPError, e:
-            if e.getcode() == 404:
-                raise ContentNotFoundError('HTTP error: %s' % e.code)
-            else:
-                return None
-                # raise ContentFetchError('HTTP error: %s' % e.code)
-        except urllib2.URLError, e:
-            raise ContentFetchError('URL error: %s' % e.reason)
-        except httplib.HTTPException, e:
-            raise ContentFetchError('HTTP Exception: %s' % e)
-        except socket.error, e:
-            raise ContentFetchError('HTTP socket error: %s' % e)
-        except Exception, e:
-            raise ContentFetchError('HTTP general exception: %s' % e)
-        return http_response.read()
-
 
 class SearchError(Exception):
     pass
