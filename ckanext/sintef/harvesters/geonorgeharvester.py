@@ -110,6 +110,15 @@ class GeonorgeHarvester(HarvesterBase):
 
 
     def _set_config(self, config_str):
+        '''
+        When creating a harvester, the user has the option of entering further
+        configuration in a form. This method sets the global variable 'config'
+        to either the configuration, or to an empty dictionary if there is no
+        further configuration entered by the user.
+
+        :param config_str: Config string coming from the form.
+        :returns: A dictionary containing any user configuration.
+        '''
         if config_str:
             self.config = json.loads(config_str)
 
@@ -215,6 +224,15 @@ class GeonorgeHarvester(HarvesterBase):
 
     @classmethod
     def _last_error_free_job(cls, harvest_job):
+        '''
+        The harvester uses this method to get the latest job that was completed
+        without any errors occuring. The date and time of this job is useful
+        when trying to find datasets that were updated after the last successful
+        job.
+
+        :param harvest_job: HarvestJob object.
+        :returns: The last fully completed job of the harvester.
+        '''
         jobs = \
             model.Session.query(HarvestJob) \
                  .filter(HarvestJob.source == harvest_job.source) \
@@ -289,6 +307,18 @@ class GeonorgeHarvester(HarvesterBase):
 
 
     def _get_modified_datasets(self, pkg_dicts, base_url, last_harvest):
+        '''
+        If the harvester has had at least one error-free job in the past, this
+        method is used to remove any result in the given dictionary, that has
+        not been changed/updated since the last error-free job.
+
+        :param pkg_dicts: Dictionary containing dataset metadata.
+        :param base_url: String containing the base URL of the harvesting
+                         source.
+        :param last_harvest: HarvestJob object.
+        :returns: A dictionary that contains only the metadata of the datasets
+                  that was updated since last error-free harvesting job.
+        '''
         base_getdata_url = base_url + self._get_getdata_api_offset()
         new_pkg_dicts = list(pkg_dicts)
 
@@ -315,6 +345,16 @@ class GeonorgeHarvester(HarvesterBase):
 
 
     def _get_content(self, url, data=None):
+        '''
+        This methods takes care of any HTTP-request that is made towards the
+        API's of Geonorge, either it is the 'kartkatalog' or the 'nedlastning'
+        API.
+
+        :param url: String containing the URL to request content from.
+        :param data: Dictionary with JSON-data used in POST-requests towards the
+                     download API.
+        :returns: The content from an HTTP-request.
+        '''
         http_request = urllib2.Request(url=url)
 
         try:
@@ -434,8 +474,6 @@ class GeonorgeHarvester(HarvesterBase):
                         remote_geonorge_base_url,
                         fq_terms))
 
-                log.debug('DATE: %s', get_changes_since)
-
                 pkg_dicts = \
                     self._get_modified_datasets(pkg_dicts,
                                                     remote_geonorge_base_url,
@@ -499,49 +537,8 @@ class GeonorgeHarvester(HarvesterBase):
 
 
     def fetch_stage(self, harvest_object):
-        '''
-        The fetch stage will receive a HarvestObject object and will be
-        responsible for:
-            - getting the contents of the remote object (e.g. for a CSW server,
-              perform a GetRecordById request).
-            - saving the content in the provided HarvestObject.
-            - creating and storing any suitable HarvestObjectErrors that may
-              occur.
-            - returning True if everything is ok (ie the object should now be
-              imported), "unchanged" if the object didn't need harvesting after
-              all (ie no error, but don't continue to import stage) or False if
-              there were errors.
-
-        :param harvest_object: HarvestObject object
-        :returns: True if successful, 'unchanged' if nothing to import after
-                  all, False if not successful
-        '''
-        # log.debug('In GeonorgeHarvester fetch_stage')
-        #
-        # remote_geonorge_base_url = harvest_object.job.source.url.rstrip('/')
-        # base_getdata_url = remote_geonorge_base_url + self._get_getdata_api_offset()
-        # url = base_getdata_url + harvest_object.guid
-        #
-        # log.debug('Searching for Geonorge dataset: %s', url)
-        # try:
-        #     content = self._get_content(url)
-        # except ContentFetchError, e:
-        #     raise SearchError('Error sending request to search remote '
-        #                       'Geonorge instance %s url %r. Error: %s' %
-        #                       (remote_geonorge_base_url, url, e))
-        #
-        # try:
-        #     response_dict = json.loads(content)
-        # except ValueError:
-        #     raise SearchError('Response from remote Geonorge was not JSON: %r'
-        #                       % content)
-        #
-        # harvest_object_content = json.loads(harvest_object.content)
-        # harvest_object_content.update(response_dict)
-        #
-        # log.debug('HARVEST_OBJECT_FETCH_UPDATE: %s', harvest_object_content)
-        #
-        # harvest_object.content = json.dumps(harvest_object_content)
+        # Nothing to do here - we got the package dict in the search in the
+        # gather stage
         return True
 
 
