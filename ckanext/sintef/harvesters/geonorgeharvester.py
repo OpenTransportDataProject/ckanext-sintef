@@ -92,6 +92,9 @@ class GeonorgeHarvester(HarvesterBase):
         :returns: A string that is only contains lowercase and alphanumeric
                   letters.
         '''
+        # Characters from the norwegian alphabet are replaced. The replacing is
+        # needed because words like 'kjøre' and 'kjære' become the same word,
+        # 'kjre', if one was to just remove the norwegian characters.
         chars_to_replace = {' ': '-',
                             u'\u00E6': 'ae',
                             u'\u00C6': 'ae',
@@ -105,8 +108,11 @@ class GeonorgeHarvester(HarvesterBase):
                 string_to_modify.replace(char, chars_to_replace.get(char))
 
         string_to_modify = string_to_modify.lower()
+        # Removing any other disallowed characters, making the string
+        # alphanumeric...
+        modified_string = re.sub(r'[^A-Za-z0-9\-\_]+', '', string_to_modify)
 
-        return re.sub(r'[^A-Za-z0-9\-\_]+', '', string_to_modify)
+        return modified_string
 
 
     def _set_config(self, config_str):
@@ -283,6 +289,7 @@ class GeonorgeHarvester(HarvesterBase):
         :param harvest_job: HarvestJob object.
         :returns: The last fully completed job of the harvester.
         '''
+        # look for jobs with no gather errors
         jobs = \
             model.Session.query(HarvestJob) \
                  .filter(HarvestJob.source == harvest_job.source) \
