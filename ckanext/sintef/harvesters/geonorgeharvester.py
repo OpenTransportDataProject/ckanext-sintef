@@ -128,15 +128,13 @@ class GeonorgeHarvester(HarvesterBase):
         :param harvest_object_id: Config string coming from the form
         :returns: A string with the validated configuration options
         '''
-        # DEBUGGING
-        log.debug('In GeonorgeHarvester - validate_config')
-
         if not config:
             return config
 
         try:
             config_obj = json.loads(config)
 
+            # Check if 'theme' is a list of strings if it is defined
             if 'theme' in config_obj:
                 if not isinstance(config_obj['theme'], list):
                     raise ValueError('theme must be a *list* of themes')
@@ -144,6 +142,7 @@ class GeonorgeHarvester(HarvesterBase):
                         not isinstance(config_obj['theme'][0], basestring):
                     raise ValueError('theme must be a list of strings')
 
+            # Check if 'organization' is a list of strings if it is defined
             if 'organization' in config_obj:
                 if not isinstance(config_obj['organization'], list):
                     raise ValueError('organization must be a *list* of organizations')
@@ -151,6 +150,7 @@ class GeonorgeHarvester(HarvesterBase):
                         not isinstance(config_obj['organization'][0], basestring):
                     raise ValueError('organization must be a list of strings')
 
+            # Check if 'text' is a list of strings if it is defined
             if 'text' in config_obj:
                 if not isinstance(config_obj['text'], list):
                     raise ValueError('text must be a *list* of texts')
@@ -158,6 +158,7 @@ class GeonorgeHarvester(HarvesterBase):
                         not isinstance(config_obj['text'][0], basestring):
                     raise ValueError('text must be a list of strings')
 
+            # Check if 'title' is a list of strings if it is defined
             if 'title' in config_obj:
                 if not isinstance(config_obj['title'], list):
                     raise ValueError('title must be a *list* of titles')
@@ -165,6 +166,7 @@ class GeonorgeHarvester(HarvesterBase):
                         not isinstance(config_obj['title'][0], basestring):
                     raise ValueError('title must be a list of strings')
 
+            # Check if 'uuid' is a list of strings if it is defined
             if 'uuid' in config_obj:
                 if not isinstance(config_obj['uuid'], list):
                     raise ValueError('uuid must be a *list* of uuids')
@@ -172,12 +174,57 @@ class GeonorgeHarvester(HarvesterBase):
                         not isinstance(config_obj['uuid'][0], basestring):
                     raise ValueError('uuid must be a list of strings')
 
+            # Check if 'type' is a list of strings if it is defined
             if 'type' in config_obj:
                 if not isinstance(config_obj['type'], list):
                     raise ValueError('type must be a *list* of types')
                 if config_obj['type'] and \
                         not isinstance(config_obj['type'][0], basestring):
                     raise ValueError('type must be a list of strings')
+
+            # Check if 'default_tags' is a list of strings if it is defined
+            if 'default_tags' in config_obj:
+                if not isinstance(config_obj['default_tags'], list):
+                    raise ValueError('default_tags must be a *list* of tags')
+                if config_obj['default_tags'] and \
+                        not isinstance(config_obj['default_tags'][0], basestring):
+                    raise ValueError('default_tags must be a list of strings')
+
+            # Check if 'remote_orgs' is set to 'create' if it is defined
+            if 'remote_orgs' in config_obj:
+                if not config_obj['remote_orgs'] in ['create']:
+                    raise ValueError('remote_orgs can only be set to "create"')
+
+            # Check if 'get_files' is a string that is either 'True' or 'False'
+            # Set to False if not defined
+            if 'get_files' in config_obj:
+                if not config_obj['get_files'] in ['True', 'true', 'False', 'false']:
+                    raise ValueError('get_files must be either "True" or "False"')
+                if config_obj['get_files'] and \
+                        not isinstance(config_obj['get_files'], basestring)
+                    raise ValueError('get_files must be a string, either "True" or "False"')
+                if config_obj['get_files'] in ['True', 'true']:
+                    config_obj['get_files'] = True
+                elif config_obj['get_files'] in ['False', 'false']:
+                    config_obj['get_files'] = False
+            else:
+                config_obj['get_files'] = False
+
+            # Check if 'force_all' is a string that is either 'True' or 'False'
+            # Set to False if not defined
+            if 'force_all' in config_obj:
+                if not config_obj['force_all'] in ['True', 'true', 'False', 'false']:
+                    raise ValueError('force_all must be either "True" or "False"')
+                if config_obj['force_all'] and \
+                        not isinstance(config_obj['force_all'], basestring)
+                    raise ValueError('force_all must be a string, either "True" or "False"')
+                if config_obj['force_all'] in ['True', 'true']:
+                    config_obj['force_all'] = True
+                elif config_obj['force_all'] in ['False', 'false']:
+                    config_obj['force_all'] = False
+            else:
+                config_obj['force_all'] = False
+
 
             config = json.dumps(config_obj)
 
