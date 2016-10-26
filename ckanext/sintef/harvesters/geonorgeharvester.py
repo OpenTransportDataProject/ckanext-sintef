@@ -410,7 +410,6 @@ class GeonorgeHarvester(HarvesterBase):
         # Filter in/out datasets from particular organizations
         # This makes a list with lists of all possible search-combinations
         # needed to search for everything specified in the config
-        # If it works, it ain't stupid.
         def get_item_from_list(_list, index):
             counter = 0
             for item in _list:
@@ -651,7 +650,7 @@ class GeonorgeHarvester(HarvesterBase):
                 package_dict['tags'].extend(
                     [t for t in default_tags if t not in package_dict['tags']])
 
-
+            #TODO: Check with config if this is going to be run -> is "get_files" == True?
             if package_dict.get('DistributionProtocol') == 'WWW:DOWNLOAD-1.0-http--download':
                 package_dict['resources'] = []
                 package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
