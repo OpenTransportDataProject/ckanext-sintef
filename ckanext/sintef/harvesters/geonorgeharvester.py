@@ -70,15 +70,6 @@ class GeonorgeHarvester(HarvesterBase):
         * description: a small description of what the harvester does. This
           will appear on the form as a guidance to the user.
 
-        A complete example may be::
-
-            {
-                'name': 'csw',
-                'title': 'CSW Server',
-                'description': 'A server that implements OGC's Catalog Service
-                                for the Web (CSW) standard'
-            }
-
         :returns: A dictionary with the harvester descriptors
         '''
         return {
@@ -88,20 +79,34 @@ class GeonorgeHarvester(HarvesterBase):
         }
 
 
-    def _make_lower_and_alphanumeric(self, s):
-        s_dict = {' ': '-',
-                  u'\u00E6': 'ae',
-                  u'\u00C6': 'ae',
-                  u'\u00F8': 'oe',
-                  u'\u00D8': 'oe',
-                  u'\u00E5': 'aa',
-                  u'\u00C5': 'aa'}
+    def _make_lower_and_alphanumeric(self, string_to_modify):
+        '''
+        The 'organization_create' method in ckan.logic.action.create requires
+        the 'name' parameter to be lowercase and alphanumeric. (It is used in
+        the organization's URI.)
+        The names of the organizations imported however, contain capitalized
+        and letters from the norwegian alphabet. This method is therefore
+        needed when creating organizations from imported metadata.
 
-        for key in s_dict:
-            s = s.replace(key, s_dict[key])
+        :param string_to_modify: String that gets modified in this method.
+        :returns: A string that is only contains lowercase and alphanumeric
+                  letters.
+        '''
+        chars_to_replace = {' ': '-',
+                            u'\u00E6': 'ae',
+                            u'\u00C6': 'ae',
+                            u'\u00F8': 'oe',
+                            u'\u00D8': 'oe',
+                            u'\u00E5': 'aa',
+                            u'\u00C5': 'aa'}
 
-        s = s.lower()
-        return re.sub(r'[^A-Za-z0-9\-\_]+', '', s)
+        for char in chars_to_replace:
+            string_to_modify = \
+                string_to_modify.replace(char, chars_to_replace.get(char))
+
+        string_to_modify = string_to_modify.lower()
+
+        return re.sub(r'[^A-Za-z0-9\-\_]+', '', string_to_modify)
 
 
     def _set_config(self, config_str):
@@ -115,9 +120,6 @@ class GeonorgeHarvester(HarvesterBase):
 
     def validate_config(self, config):
         '''
-
-        [optional]
-
         Harvesters can provide this method to validate the configuration
         entered in the form. It should return a single string, which will be
         stored in the database.  Exceptions raised will be shown in the form's
@@ -170,7 +172,6 @@ class GeonorgeHarvester(HarvesterBase):
                         not isinstance(config_obj['uuid'][0], basestring):
                     raise ValueError('uuid must be a list of strings')
 
-
             if 'type' in config_obj:
                 if not isinstance(config_obj['type'], list):
                     raise ValueError('type must be a *list* of types')
@@ -188,9 +189,6 @@ class GeonorgeHarvester(HarvesterBase):
 
     def get_original_url(self, harvest_object_id):
         '''
-
-        [optional]
-
         This optional but very recommended method allows harvesters to return
         the URL to the original remote document, given a Harvest Object id.
         Note that getting the harvest object you have access to its guid as
@@ -200,17 +198,12 @@ class GeonorgeHarvester(HarvesterBase):
         or no URL is returned, only a link to the local copy of the remote
         document will be shown.
 
-        Examples:
-            * For a CKAN record: http://{ckan-instance}/api/rest/{guid}
-            * For a WAF record: http://{waf-root}/{file-name}
-            * For a CSW record: http://{csw-server}/?Request=GetElementById&Id={guid}&...
-
         :param harvest_object_id: HarvestObject id
         :returns: A string with the URL to the original document
         '''
         params = {'facets[0]name': 'uuid',
-                  'facets[0]value': harvest_object_id,
-                  'limit': '1'}
+                  'facets[0]value': harvest_object_id}
+
         metadata_url = self._get_geonorge_base_url() + self._get_search_api_offset() + '?' + urllib.urlencode(params)
         content = self._get_content(metadata_url)
         content_json = json.loads(content)
@@ -295,8 +288,8 @@ class GeonorgeHarvester(HarvesterBase):
         return pkg_dicts
 
 
-    def _check_if_datasets_are_modified(self, pkg_dicts, remote_geonorge_base_url, get_changes_since):
-        base_getdata_url = remote_geonorge_base_url + self._get_getdata_api_offset()
+    def _get_modified_datasets(self, pkg_dicts, base_url, last_harvest):
+        base_getdata_url = base_url + self._get_getdata_api_offset()
         new_pkg_dicts = list(pkg_dicts)
 
         for pkg_dict in pkg_dicts:
@@ -313,39 +306,12 @@ class GeonorgeHarvester(HarvesterBase):
                 except ValueError:
                     raise SearchError('Response from remote Geonorge was not JSON: %r'
                                       % content)
-            if response_dict.get('DateMetadataUpdated') < get_changes_since:
+            if response_dict.get('DateMetadataUpdated') < last_harvest:
                 log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
                           response_dict.get('Uuid'))
                 new_pkg_dicts.remove(pkg_dict)
 
         return new_pkg_dicts
-
-
-    @classmethod
-    def _last_error_free_job(cls, harvest_job):
-        # TODO weed out cancelled jobs somehow.
-        # look for jobs with no gather errors
-        jobs = \
-            model.Session.query(HarvestJob) \
-                 .filter(HarvestJob.source == harvest_job.source) \
-                 .filter(HarvestJob.gather_started != None) \
-                 .filter(HarvestJob.status == 'Finished') \
-                 .filter(HarvestJob.id != harvest_job.id) \
-                 .filter(
-                     ~exists().where(
-                         HarvestGatherError.harvest_job_id == HarvestJob.id)) \
-                 .order_by(HarvestJob.gather_started.desc())
-        # now check them until we find one with no fetch/import errors
-        # (looping rather than doing sql, in case there are lots of objects
-        # and lots of jobs)
-        for job in jobs:
-            for obj in job.objects:
-                if obj.current is False and \
-                        obj.report_status != 'not modified':
-                    # unsuccessful, so go onto the next job
-                    break
-            else:
-                return job
 
 
     def _get_content(self, url, data=None):
@@ -471,7 +437,7 @@ class GeonorgeHarvester(HarvesterBase):
                 log.debug('DATE: %s', get_changes_since)
 
                 pkg_dicts = \
-                    self._check_if_datasets_are_modified(pkg_dicts,
+                    self._get_modified_datasets(pkg_dicts,
                                                     remote_geonorge_base_url,
                                                     get_changes_since)
 
@@ -703,51 +669,18 @@ class GeonorgeHarvester(HarvesterBase):
             #     except Exception, e:
             #         log.error(e.message)
 
-            # remote_groups = self.config.get('remote_groups', None)
-            # if not remote_groups in ('only_local', 'create'):
-            #     # Ignore remote groups
-            #     package_dict.pop('groups', None)
-            # else:
-            #     if not 'groups' in package_dict:
-            #         package_dict['groups'] = []
-            #
-            #     # check if remote groups exist locally, otherwise remove
-            #     validated_groups = []
-            #
-            #     for group_ in package_dict['groups']:
-            #         try:
-            #             data_dict = {'id': group_['id']}
-            #             group = get_action('group_show')(base_context.copy(), data_dict)
-            #             validated_groups.append({'id': group['id'], 'name': group['name']})
-            #
-            #         except NotFound, e:
-            #             log.info('Group %s is not available', group_)
-            #             if remote_groups == 'create':
-            #                 try:
-            #                     group = self._get_group(harvest_object.source.url, group_)
-            #                 except RemoteResourceError:
-            #                     log.error('Could not get remote group %s', group_)
-            #                     continue
-            #
-            #                 for key in ['packages', 'created', 'users', 'groups', 'tags', 'extras', 'display_name']:
-            #                     group.pop(key, None)
-            #
-            #                 get_action('group_create')(base_context.copy(), group)
-            #                 log.info('Group %s has been newly created', group_)
-            #                 validated_groups.append({'id': group['id'], 'name': group['name']})
-            #
-            #     package_dict['groups'] = validated_groups
-
             # Local harvest source organization
-            source_dataset = get_action('package_show')(base_context.copy(), {'id': harvest_object.source.id})
+            source_dataset = \
+                get_action('package_show')(base_context.copy(),
+                                           {'id': harvest_object.source.id})
             local_org = source_dataset.get('owner_org')
 
             remote_orgs = self.config.get('remote_orgs', None)
 
             if remote_orgs is not None:
-                remote_orgs = self.config.get('remote_orgs', None)[0]
+                remote_orgs = self.config.get('remote_orgs', None)
 
-            if not remote_orgs in ('only_local', 'create'):
+            if not remote_orgs in ('create'):
                 # Assign dataset to the source organization
                 package_dict['owner_org'] = local_org
             else:
@@ -776,6 +709,7 @@ class GeonorgeHarvester(HarvesterBase):
                                        'image_url': package_dict.get('OrganizationLogo')}
 
                                 org = get_action('organization_create')(base_context.copy(), new_org)
+
                                 log.info('Organization %s has been newly created', remote_org)
                                 validated_org = org['id']
                             except (RemoteResourceError, ValidationError):
@@ -783,16 +717,6 @@ class GeonorgeHarvester(HarvesterBase):
 
                 package_dict['owner_org'] = validated_org or local_org
 
-            # # Set default groups if needed
-            # default_groups = self.config.get('default_groups', [])
-            # if default_groups:
-            #     if not 'groups' in package_dict:
-            #         package_dict['groups'] = []
-            #     existing_group_ids = [g['id'] for g in package_dict['groups']]
-            #     package_dict['groups'].extend(
-            #         [g for g in self.config['default_group_dicts']
-            #          if g['id'] not in existing_group_ids])
-            #
             # # Set default extras if needed
             # default_extras = self.config.get('default_extras', {})
             # def get_extra(key, package_dict):
