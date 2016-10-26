@@ -184,12 +184,15 @@ class GeonorgeHarvester(HarvesterBase):
                     raise ValueError('uuid must be a list of strings')
 
             # Check if 'type' is a list of strings if it is defined
+            # Set to 'dataset' if not defined
             if 'type' in config_obj:
                 if not isinstance(config_obj['type'], list):
                     raise ValueError('type must be a *list* of types')
                 if config_obj['type'] and \
                         not isinstance(config_obj['type'][0], basestring):
                     raise ValueError('type must be a list of strings')
+            else:
+                config_obj['type'] = 'dataset'
 
             # Check if 'default_tags' is a list of strings if it is defined
             if 'default_tags' in config_obj:
@@ -678,57 +681,57 @@ class GeonorgeHarvester(HarvesterBase):
                 package_dict['tags'].extend(
                     [t for t in default_tags if t not in package_dict['tags']])
 
-            #TODO: Check with config if this is going to be run -> is "get_files" == True?
-            if package_dict.get('DistributionProtocol') == 'WWW:DOWNLOAD-1.0-http--download':
-                package_dict['resources'] = []
-                package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
-                                                  'name': 'Download page',
-                                                  'format': 'HTML',
-                                                  'mimetype': 'text/html'})
-            # Uncomment this to add resources for datasets with distributionprotocol "GEONORGE:DOWNLOAD":
-            # elif package_dict.get('DistributionProtocol') == 'GEONORGE:DOWNLOAD':
-            #     try:
-            #         package_dict['resources'] = []
-            #
-            #         log.info('Making orderdata for dataset %s' % package_dict['id'])
-            #         payload = {"email": "bruker@epost.no",
-            #                 "orderLines": [{"metadataUuid": package_dict['id']}]}
-            #         url = self._get_geonorge_download_url() + self._get_capabilities_api_offset() + package_dict['id']
-            #         capabilities_content = self._get_content(url)
-            #         capabilities_content_json = json.loads(capabilities_content)
-            #         resources_orderdata = {}
-            #         for capability in capabilities_content_json["_links"]:
-            #             cap_link = capability["href"]
-            #             capability_description = json.dumps(cap_link).split("/")
-            #             resource = capability_description[len(capability_description) - 2]
-            #             if resource in ["area", "format", "projection"]:
-            #                 resources_orderdata["%ss" % resource] = cap_link
-            #         for rsrc in resources_orderdata:
-            #             resource_content = self._get_content(resources_orderdata[rsrc])
-            #             resource_content_json = json.loads(resource_content)
-            #             if rsrc == "areas":
-            #                 areas_json = []
-            #                 for area in resource_content_json:
-            #                     last_index = len(areas_json)
-            #                     areas_json.append({})
-            #                     for field in area:
-            #                         if field in ["code", "type", "name"]:
-            #                             areas_json[last_index][field] = area[field]
-            #                 resource_content_json = areas_json
-            #             payload['orderLines'][0][rsrc] = resource_content_json
-            #         log.info('Orderdata was successfully made!')
-            #
-            #         log.info('Using orderdata to get resources.')
-            #         order_url = self._get_geonorge_download_url() + self._get_order_api_offset()
-            #         order_content = self._get_content(order_url, payload)
-            #         order_content_json = json.loads(order_content)
-            #         log.debug('Inserting files into resources.')
-            #         for files in order_content_json["files"]:
-            #             package_dict['resources'].append({'url': files["downloadUrl"],
-            #                                               'name': files["name"]})
-            #         log.info('Resources added.')
-            #     except Exception, e:
-            #         log.error(e.message)
+            # Check if url to every file to the dataset should be added to 'resources'
+            if config['get_files']:
+                if package_dict.get('DistributionProtocol') == 'WWW:DOWNLOAD-1.0-http--download':
+                    package_dict['resources'] = []
+                    package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
+                                                      'name': 'Download page',
+                                                      'format': 'HTML',
+                                                      'mimetype': 'text/html'})
+                elif package_dict.get('DistributionProtocol') == 'GEONORGE:DOWNLOAD':
+                    try:
+                        package_dict['resources'] = []
+
+                        log.info('Making orderdata for dataset %s' % package_dict['id'])
+                        payload = {"email": "bruker@epost.no",
+                                "orderLines": [{"metadataUuid": package_dict['id']}]}
+                        url = self._get_geonorge_download_url() + self._get_capabilities_api_offset() + package_dict['id']
+                        capabilities_content = self._get_content(url)
+                        capabilities_content_json = json.loads(capabilities_content)
+                        resources_orderdata = {}
+                        for capability in capabilities_content_json["_links"]:
+                            cap_link = capability["href"]
+                            capability_description = json.dumps(cap_link).split("/")
+                            resource = capability_description[len(capability_description) - 2]
+                            if resource in ["area", "format", "projection"]:
+                                resources_orderdata["%ss" % resource] = cap_link
+                        for rsrc in resources_orderdata:
+                            resource_content = self._get_content(resources_orderdata[rsrc])
+                            resource_content_json = json.loads(resource_content)
+                            if rsrc == "areas":
+                                areas_json = []
+                                for area in resource_content_json:
+                                    last_index = len(areas_json)
+                                    areas_json.append({})
+                                    for field in area:
+                                        if field in ["code", "type", "name"]:
+                                            areas_json[last_index][field] = area[field]
+                                resource_content_json = areas_json
+                            payload['orderLines'][0][rsrc] = resource_content_json
+                        log.info('Orderdata was successfully made!')
+
+                        log.info('Using orderdata to get resources.')
+                        order_url = self._get_geonorge_download_url() + self._get_order_api_offset()
+                        order_content = self._get_content(order_url, payload)
+                        order_content_json = json.loads(order_content)
+                        log.debug('Inserting files into resources.')
+                        for files in order_content_json["files"]:
+                            package_dict['resources'].append({'url': files["downloadUrl"],
+                                                              'name': files["name"]})
+                        log.info('Resources added.')
+                    except Exception, e:
+                        log.error(e.message)
 
             # Local harvest source organization
             source_dataset = \
