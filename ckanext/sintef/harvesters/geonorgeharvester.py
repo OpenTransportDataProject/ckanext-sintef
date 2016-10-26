@@ -312,12 +312,22 @@ class GeonorgeHarvester(HarvesterBase):
 
 
     def _search_for_datasets(self, remote_geonorge_base_url, fq_terms=None):
+        '''
+        Does a dataset search on Geonorge with specified parameters and returns
+        the results.
+        Deals with paging to get all the results.
+
+        :param remote_geonorge_base_url: Geonorge base url
+        :param fq_terms: Parameters to specify which datasets to search for
+        :returns: A list of results from the search, containing dataset-metadata
+        '''
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'offset': 1,
                   'limit': 10,
                   'facets[0]name': 'type',
                   'facets[0]value': 'dataset'}
 
+        # Set the parameters to be readable by geonorge's API
         fq_term_counter = 1
         for fq_term in fq_terms:
             params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
@@ -326,13 +336,16 @@ class GeonorgeHarvester(HarvesterBase):
         param_keys_sorted = sorted(params)
         pkg_dicts = []
 
+        # Goes through each page
         while True:
             url = base_search_url + '?'
+            # Add each parameter to the url-string
             for param_key in param_keys_sorted:
                 url += urllib.urlencode({param_key: "%s" % (params[param_key])}) + '&'
             url = url[:-1]
             log.debug('Searching for Geonorge datasets: %s', url)
             try:
+                # Get the content of the url - this includes the list of results
                 content = self._get_content(url)
             except ContentFetchError, e:
                 raise SearchError('Error sending request to search remote '
@@ -340,21 +353,26 @@ class GeonorgeHarvester(HarvesterBase):
                                   (remote_geonorge_base_url, url, e))
 
             try:
+                # Load the content as a json (make it a dictionary)
                 response_dict = json.loads(content)
             except ValueError:
                 raise SearchError('Response from remote Geonorge was not JSON: %r'
                                   % content)
 
             try:
+                # Get the list of results from the response dictionary (content)
                 pkg_dicts_page = response_dict.get('Results', [])
             except ValueError:
                 raise SearchError('Response JSON did not contain '
                                   'results: %r' % response_dict)
             pkg_dicts.extend(pkg_dicts_page)
 
+            # If paging is at last page, the length is 0 and the search is done
+            # for this url
             if len(pkg_dicts_page) == 0:
                 break
 
+            # Paging
             params['offset'] += params['limit']
 
         return pkg_dicts
