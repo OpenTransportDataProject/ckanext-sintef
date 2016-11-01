@@ -642,8 +642,7 @@ class GeonorgeHarvester(HarvesterBase):
 
         try:
             package_dict = json.loads(harvest_object.content)
-
-            if package_dict.get('type') == 'harvest':
+            if package_dict.get('Type', '') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')
                 return True
 
@@ -653,20 +652,18 @@ class GeonorgeHarvester(HarvesterBase):
             package_dict['url'] = package_dict.pop('ShowDetailsUrl')
             package_dict['isopen'] = package_dict.pop('IsOpenData')
 
-            organization_name = package_dict.get('Organization')
+            organization_name = package_dict['Organization']
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
-            package_dict['tags'] = []
             info = {
                     'name': package_dict.pop('Theme')
                     }
+            package_dict['tags'] = []
             package_dict['tags'].append(info)
 
             # Set default tags if needed
             default_tags = self.config.get('default_tags', [])
             if default_tags:
-                if not 'tags' in package_dict:
-                    package_dict['tags'] = []
                 package_dict['tags'].extend(
                     [t for t in default_tags if t not in package_dict['tags']])
 
@@ -730,9 +727,6 @@ class GeonorgeHarvester(HarvesterBase):
 
             remote_orgs = self.config.get('remote_orgs', None)
 
-            if remote_orgs is not None:
-                remote_orgs = self.config.get('remote_orgs', None)
-                
             if not remote_orgs == 'create':
                 # Assign dataset to the source organization
                 package_dict['owner_org'] = local_org
