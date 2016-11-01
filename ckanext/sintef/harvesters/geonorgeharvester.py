@@ -376,22 +376,27 @@ class GeonorgeHarvester(HarvesterBase):
 
         for pkg_dict in pkg_dicts:
             url = base_getdata_url + pkg_dict['Uuid']
+
             try:
                 content = self._get_content(url)
             except ContentFetchError, e:
                 raise SearchError('Error sending request to getdata remote '
                                   'Geonorge instance %s url %r. Error: %s' %
                                   (remote_geonorge_base_url, url, e))
+
             if content is not None:
                 try:
                     response_dict = json.loads(content)
                 except ValueError:
                     raise SearchError('Response from remote Geonorge was not JSON: %r'
                                       % content)
-            if response_dict.get('DateMetadataUpdated') < last_harvest:
-                log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
-                          response_dict.get('Uuid'))
-                new_pkg_dicts.remove(pkg_dict)
+
+                # Checking if the dataset is up to date since last error-free
+                # harvest.
+                if response_dict.get('DateMetadataUpdated') < last_harvest:
+                    log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
+                              response_dict.get('Uuid'))
+                    new_pkg_dicts.remove(pkg_dict)
 
         return new_pkg_dicts
 
