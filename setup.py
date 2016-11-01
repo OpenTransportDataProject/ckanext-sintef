@@ -81,6 +81,7 @@ setup(
         [ckan.plugins]
         sintef=ckanext.sintef.plugin:SintefPlugin
         geonorge_harvester=ckanext.sintef.harvesters.geonorgeharvester:GeonorgeHarvester
+        datanorge_harvester=ckanext.sintef.harvesters.datanorgeharvester:DataNorgeHarvester
 	[babel.extractors]
 	ckan = ckan.lib.extract:extract_ckan
     ''',

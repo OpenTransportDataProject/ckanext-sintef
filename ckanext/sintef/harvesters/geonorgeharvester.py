@@ -93,7 +93,7 @@ class GeonorgeHarvester(HarvesterBase):
                   letters.
         '''
         # Characters from the norwegian alphabet are replaced. The replacing is
-        # needed because words like 'kjøre' and 'kjære' become the same word,
+        # needed because words like 'kjoere' and 'kjaere' become the same word,
         # 'kjre', if one was to just remove the norwegian characters.
         chars_to_replace = {' ': '-',
                             u'\u00E6': 'ae',
@@ -153,40 +153,35 @@ class GeonorgeHarvester(HarvesterBase):
             if 'theme' in config_obj:
                 if not isinstance(config_obj['theme'], list):
                     raise ValueError('theme must be a *list* of themes')
-                if config_obj['theme'] and \
-                        not isinstance(config_obj['theme'][0], basestring):
+                if not isinstance(config_obj['theme'][0], basestring):
                     raise ValueError('theme must be a list of strings')
 
             # Check if 'organization' is a list of strings if it is defined
             if 'organization' in config_obj:
                 if not isinstance(config_obj['organization'], list):
                     raise ValueError('organization must be a *list* of organizations')
-                if config_obj['organization'] and \
-                        not isinstance(config_obj['organization'][0], basestring):
+                if not isinstance(config_obj['organization'][0], basestring):
                     raise ValueError('organization must be a list of strings')
 
             # Check if 'text' is a list of strings if it is defined
             if 'text' in config_obj:
                 if not isinstance(config_obj['text'], list):
                     raise ValueError('text must be a *list* of texts')
-                if config_obj['text'] and \
-                        not isinstance(config_obj['text'][0], basestring):
+                if not isinstance(config_obj['text'][0], basestring):
                     raise ValueError('text must be a list of strings')
 
             # Check if 'title' is a list of strings if it is defined
             if 'title' in config_obj:
                 if not isinstance(config_obj['title'], list):
                     raise ValueError('title must be a *list* of titles')
-                if config_obj['title'] and \
-                        not isinstance(config_obj['title'][0], basestring):
+                if not isinstance(config_obj['title'][0], basestring):
                     raise ValueError('title must be a list of strings')
 
             # Check if 'uuid' is a list of strings if it is defined
             if 'uuid' in config_obj:
                 if not isinstance(config_obj['uuid'], list):
                     raise ValueError('uuid must be a *list* of uuids')
-                if config_obj['title'] and \
-                        not isinstance(config_obj['uuid'][0], basestring):
+                if not isinstance(config_obj['uuid'][0], basestring):
                     raise ValueError('uuid must be a list of strings')
 
             # Check if 'type' is a list of strings if it is defined
@@ -194,52 +189,36 @@ class GeonorgeHarvester(HarvesterBase):
             if 'type' in config_obj:
                 if not isinstance(config_obj['type'], list):
                     raise ValueError('type must be a *list* of types')
-                if config_obj['type'] and \
-                        not isinstance(config_obj['type'][0], basestring):
+                if not isinstance(config_obj['type'][0], basestring):
                     raise ValueError('type must be a list of strings')
             else:
-                config_obj['type'] = 'dataset'
+                config_obj['type'] = ['dataset']
 
             # Check if 'default_tags' is a list of strings if it is defined
             if 'default_tags' in config_obj:
                 if not isinstance(config_obj['default_tags'], list):
                     raise ValueError('default_tags must be a *list* of tags')
-                if config_obj['default_tags'] and \
-                        not isinstance(config_obj['default_tags'][0], basestring):
+                if not isinstance(config_obj['default_tags'][0], basestring):
                     raise ValueError('default_tags must be a list of strings')
 
             # Check if 'remote_orgs' is set to 'create' if it is defined
             if 'remote_orgs' in config_obj:
-                if not config_obj['remote_orgs'] in ['create']:
+                if not config_obj['remote_orgs'] == 'create':
                     raise ValueError('remote_orgs can only be set to "create"')
 
-            # Check if 'get_files' is a string that is either 'True' or 'False'
+            # Check if 'get_files' is a boolean value
             # Set to False if not defined
             if 'get_files' in config_obj:
-                if not config_obj['get_files'] in ['True', 'true', 'False', 'false']:
-                    raise ValueError('get_files must be either "True" or "False"')
-                if config_obj['get_files'] and \
-                        not isinstance(config_obj['get_files'], basestring)
-                    raise ValueError('get_files must be a string, either "True" or "False"')
-                if config_obj['get_files'] in ['True', 'true']:
-                    config_obj['get_files'] = True
-                elif config_obj['get_files'] in ['False', 'false']:
-                    config_obj['get_files'] = False
+                if not isinstance(config_obj['get_files'], bool):
+                    raise ValueError('get_files must be a boolean, either True or False')
             else:
                 config_obj['get_files'] = False
 
-            # Check if 'force_all' is a string that is either 'True' or 'False'
+            # Check if 'force_all' is a boolean value
             # Set to False if not defined
             if 'force_all' in config_obj:
-                if not config_obj['force_all'] in ['True', 'true', 'False', 'false']:
-                    raise ValueError('force_all must be either "True" or "False"')
-                if config_obj['force_all'] and \
-                        not isinstance(config_obj['force_all'], basestring)
-                    raise ValueError('force_all must be a string, either "True" or "False"')
-                if config_obj['force_all'] in ['True', 'true']:
-                    config_obj['force_all'] = True
-                elif config_obj['force_all'] in ['False', 'false']:
-                    config_obj['force_all'] = False
+                if not isinstance(config_obj['force_all'], bool):
+                    raise ValueError('force_all must be a boolean, either True or False')
             else:
                 config_obj['force_all'] = False
 
@@ -326,12 +305,10 @@ class GeonorgeHarvester(HarvesterBase):
         '''
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
         params = {'offset': 1,
-                  'limit': 10,
-                  'facets[0]name': 'type',
-                  'facets[0]value': 'dataset'}
+                  'limit': 10}
 
         # Set the parameters to be readable by geonorge's API
-        fq_term_counter = 1
+        fq_term_counter = 0
         for fq_term in fq_terms:
             params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
             params.update({'facets[' + str(fq_term_counter) + ']value': "%s" % (fq_terms[fq_term])})
@@ -689,7 +666,7 @@ class GeonorgeHarvester(HarvesterBase):
                     [t for t in default_tags if t not in package_dict['tags']])
 
             # Check if url to every file to the dataset should be added to 'resources'
-            if config['get_files']:
+            if self.config['get_files']:
                 if package_dict.get('DistributionProtocol') == 'WWW:DOWNLOAD-1.0-http--download':
                     package_dict['resources'] = []
                     package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
@@ -750,8 +727,8 @@ class GeonorgeHarvester(HarvesterBase):
 
             if remote_orgs is not None:
                 remote_orgs = self.config.get('remote_orgs', None)
-
-            if not remote_orgs in ('create'):
+                
+            if not remote_orgs == 'create':
                 # Assign dataset to the source organization
                 package_dict['owner_org'] = local_org
             else:
