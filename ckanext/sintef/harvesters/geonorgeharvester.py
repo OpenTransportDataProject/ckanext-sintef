@@ -184,15 +184,15 @@ class GeonorgeHarvester(HarvesterBase):
                 if not isinstance(config_obj['uuid'][0], basestring):
                     raise ValueError('uuid must be a list of strings')
 
-            # Check if 'type' is a list of strings if it is defined
-            # Set to 'dataset' if not defined
-            if 'type' in config_obj:
-                if not isinstance(config_obj['type'], list):
-                    raise ValueError('type must be a *list* of types')
-                if not isinstance(config_obj['type'][0], basestring):
-                    raise ValueError('type must be a list of strings')
-            else:
-                config_obj['type'] = ['dataset']
+            # # Check if 'type' is a list of strings if it is defined
+            # # Set to 'dataset' if not defined
+            # if 'type' in config_obj:
+            #     if not isinstance(config_obj['type'], list):
+            #         raise ValueError('type must be a *list* of types')
+            #     if not isinstance(config_obj['type'][0], basestring):
+            #         raise ValueError('type must be a list of strings')
+            # else:
+            #     config_obj['type'] = ['dataset']
 
             # Check if 'default_tags' is a list of strings if it is defined
             if 'default_tags' in config_obj:
@@ -656,11 +656,10 @@ class GeonorgeHarvester(HarvesterBase):
             organization_name = package_dict.get('Organization')
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
-            package_dict['tags'] = []
-            info = {
-                    'name': package_dict.pop('Theme')
-                    }
-            package_dict['tags'].append(info)
+            if not 'tags' in package_dict:
+                package_dict['tags'] = []
+
+            package_dict['tags'].append({'name': package_dict.pop('Theme')})
 
             # Set default tags if needed
             default_tags = self.config.get('default_tags', [])
@@ -732,7 +731,7 @@ class GeonorgeHarvester(HarvesterBase):
 
             if remote_orgs is not None:
                 remote_orgs = self.config.get('remote_orgs', None)
-                
+
             if not remote_orgs == 'create':
                 # Assign dataset to the source organization
                 package_dict['owner_org'] = local_org
@@ -770,6 +769,14 @@ class GeonorgeHarvester(HarvesterBase):
 
                 package_dict['owner_org'] = validated_org or local_org
 
+            if not 'extras' in package_dict:
+                package_dict['extras'] = []
+
+            metadata_provenance = self.get_metadata_provenance(harvest_object)
+            for key, value in metadata_provenance.iteritems():
+                log.debug(key)
+                package_dict['extras'].append({'key': key, 'value': value})
+            log.debug(package_dict['extras'])
             # # Set default extras if needed
             # default_extras = self.config.get('default_extras', {})
             # def get_extra(key, package_dict):
@@ -822,6 +829,12 @@ class GeonorgeHarvester(HarvesterBase):
             log.error(e.error_dict)
         except Exception, e:
             self._save_object_error('%s' % e, harvest_object, 'Import')
+
+    def get_metadata_provenance(self, harvest_object):
+        return {
+                'Source URL': harvest_object.source.url,
+                'Source title': harvest_object.source.title
+               }
 
 class SearchError(Exception):
     pass
