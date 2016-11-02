@@ -180,17 +180,6 @@ class GeonorgeHarvester(HarvesterBase):
                 if not isinstance(config_obj['uuid'][0], basestring):
                     raise ValueError('uuid must be a list of strings')
 
-<<<<<<< HEAD
-            # # Check if 'type' is a list of strings if it is defined
-            # # Set to 'dataset' if not defined
-            # if 'type' in config_obj:
-            #     if not isinstance(config_obj['type'], list):
-            #         raise ValueError('type must be a *list* of types')
-            #     if not isinstance(config_obj['type'][0], basestring):
-            #         raise ValueError('type must be a list of strings')
-            # else:
-            #     config_obj['type'] = ['dataset']
-=======
             # Check if 'type' is a list of strings if it is defined
             # Set to 'dataset' if not defined
             if 'datatype' in config_obj:
@@ -198,7 +187,6 @@ class GeonorgeHarvester(HarvesterBase):
                     raise ValueError('datatype must be a *list* of datatypes')
                 if not isinstance(config_obj['datatype'][0], basestring):
                     raise ValueError('datatype must be a list of strings')
->>>>>>> 8a8a26fd160aee96c67240cd83c4a85862cab52f
 
             # Check if 'default_tags' is a list of strings if it is defined
             if 'default_tags' in config_obj:
@@ -698,12 +686,6 @@ class GeonorgeHarvester(HarvesterBase):
 
             remote_orgs = self.config.get('remote_orgs', None)
 
-<<<<<<< HEAD
-            if remote_orgs is not None:
-                remote_orgs = self.config.get('remote_orgs', None)
-
-=======
->>>>>>> 8a8a26fd160aee96c67240cd83c4a85862cab52f
             if not remote_orgs == 'create':
                 # Assign dataset to the source organization
                 package_dict['owner_org'] = local_org
@@ -746,46 +728,6 @@ class GeonorgeHarvester(HarvesterBase):
                 log.debug(key)
                 package_dict['extras'].append({'key': key, 'value': value})
             log.debug(package_dict['extras'])
-            # # Set default extras if needed
-            # default_extras = self.config.get('default_extras', {})
-            # def get_extra(key, package_dict):
-            #     for extra in package_dict.get('extras', []):
-            #         if extra['key'] == key:
-            #             return extra
-            # if default_extras:
-            #     override_extras = self.config.get('override_extras', False)
-            #     if not 'extras' in package_dict:
-            #         package_dict['extras'] = {}
-            #     for key, value in default_extras.iteritems():
-            #         existing_extra = get_extra(key, package_dict)
-            #         if existing_extra and not override_extras:
-            #             continue  # no need for the default
-            #         if existing_extra:
-            #             package_dict['extras'].remove(existing_extra)
-            #         # Look for replacement strings
-            #         if isinstance(value, basestring):
-            #             value = value.format(
-            #                 harvest_source_id=harvest_object.job.source.id,
-            #                 harvest_source_url=
-            #                 harvest_object.job.source.url.strip('/'),
-            #                 harvest_source_title=
-            #                 harvest_object.job.source.title,
-            #                 harvest_job_id=harvest_object.job.id,
-            #                 harvest_object_id=harvest_object.id,
-            #                 dataset_id=package_dict['id'])
-            #
-            #         package_dict['extras'].append({'key': key, 'value': value})
-            #
-            # for resource in package_dict.get('resources', []):
-            #     # Clear remote url_type for resources (eg datastore, upload) as
-            #     # we are only creating normal resources with links to the
-            #     # remote ones
-            #     resource.pop('url_type', None)
-            #
-            #     # Clear revision_id as the revision won't exist on this CKAN
-            #     # and saving it will cause an IntegrityError with the foreign
-            #     # key.
-            #     resource.pop('revision_id', None)
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
