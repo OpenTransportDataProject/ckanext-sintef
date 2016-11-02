@@ -414,6 +414,20 @@ class GeonorgeHarvester(HarvesterBase):
         return http_response.read()
 
 
+    def get_metadata_provenance(self, harvest_object):
+        '''
+        This method provides metadata provenance to be used in the 'extras'
+        fields in the datasets that get imported.
+
+        :param: HarvestObject object.
+        :returns: A dictionary containing the harvest source URL and title.
+        '''
+        return {
+                'Source URL': harvest_object.source.url,
+                'Source title': harvest_object.source.title
+               }
+
+
     def gather_stage(self, harvest_job):
         '''
         The gather stage will receive a HarvestJob object and will be
@@ -741,11 +755,6 @@ class GeonorgeHarvester(HarvesterBase):
         except Exception, e:
             self._save_object_error('%s' % e, harvest_object, 'Import')
 
-    def get_metadata_provenance(self, harvest_object):
-        return {
-                'Source URL': harvest_object.source.url,
-                'Source title': harvest_object.source.title
-               }
 
 class SearchError(Exception):
     pass
