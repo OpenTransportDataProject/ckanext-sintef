@@ -44,10 +44,6 @@ class GeonorgeHarvester(HarvesterBase):
         return '/api/capabilities/'
 
 
-    def _get_order_api_offset(self):
-        return '/api/order/'
-
-
     def _get_geonorge_base_url(self):
         return 'https://kartkatalog.geonorge.no'
 
@@ -291,6 +287,7 @@ class GeonorgeHarvester(HarvesterBase):
         :returns: A list of results from the search, containing dataset-metadata
         '''
         base_search_url = remote_geonorge_base_url + self._get_search_api_offset()
+        # Initiate the parameters that will be sent with the url
         params = {'offset': 1,
                   'limit': 10}
 
@@ -388,26 +385,18 @@ class GeonorgeHarvester(HarvesterBase):
         return new_pkg_dicts
 
 
-    def _get_content(self, url, data=None):
+    def _get_content(self, url):
         '''
-        This methods takes care of any HTTP-request that is made towards the
-        API's of Geonorge, either it is the 'kartkatalog' or the 'nedlastning'
-        API.
+        This methods takes care of any HTTP-request that is made towards
+        Geonorges kartkatalog API.
 
         :param url: String containing the URL to request content from.
-        :param data: Dictionary with JSON-data used in POST-requests towards the
-                     download API.
         :returns: The content from an HTTP-request.
         '''
-        http_request = urllib2.Request(url=url)
-
         try:
-            if not data:
-                http_response = urllib2.urlopen(http_request)
-            else:
-                http_request.add_header('Content-Type', 'application/json')
-                params = json.dumps(data)
-                http_response = urllib2.urlopen(http_request, data=params)
+            http_request = urllib2.Request(url=url)
+            http_response = urllib2.urlopen(http_request)
+
         except urllib2.HTTPError, e:
             if e.getcode() == 404:
                 raise ContentNotFoundError('HTTP error: %s' % e.code)
@@ -457,9 +446,6 @@ class GeonorgeHarvester(HarvesterBase):
 
         pkg_dicts = []
 
-        # Filter in/out datasets from particular organizations
-        # This makes a list with lists of all possible search-combinations
-        # needed to search for everything specified in the config
         def get_item_from_list(_list, index):
             counter = 0
             for item in _list:
@@ -467,6 +453,9 @@ class GeonorgeHarvester(HarvesterBase):
                     return item
                 counter += 1
 
+        '''
+        This makes a list with lists of all possible search-combinations
+        needed to search for everything specified in the config: '''
         filter_include = {}
         fq_terms_list_length = 1
         for filter_item in self.config:
@@ -474,12 +463,14 @@ class GeonorgeHarvester(HarvesterBase):
                 filter_include[filter_item] = self.config.get(filter_item, [])
                 fq_terms_list_length *= len(filter_include[filter_item])
             elif filter_item == 'datatype':
+                # There was a key error when having filter_item = 'type'
+                # This is fixed by setting it to 'datatype' and update it
+                # to 'type' here:
                 filter_include['type'] = self.config.get(filter_item, [])
                 fq_terms_list_length *= len(filter_include['type'])
         # Set type to be 'dataset' by default:
         if not 'type' in filter_include:
             filter_include['type'] = ['dataset']
-
         fq_terms_list = [{} for i in range(fq_terms_list_length)]
 
         switchnum_max = 1
@@ -499,6 +490,10 @@ class GeonorgeHarvester(HarvesterBase):
             if temp_filter_item is not None:
                 switchnum_max *= len(filter_include[temp_filter_item])
             filter_counter += 1
+        ''' All combination of search parameters is now stored in the list:
+        fq_terms_list which is a list of dictionaries. Each dictionary in the
+        list contains one search to be made.
+        '''
 
         # Ideally we can request from the remote CKAN only those datasets
         # modified since the last completely successful harvest.
@@ -519,6 +514,8 @@ class GeonorgeHarvester(HarvesterBase):
                      get_changes_since)
 
             try:
+                # For every dictionary of search parameters in fq_terms_list:
+                # add the result from the search to pkg_dicts.
                 for fq_terms in fq_terms_list:
                     pkg_dicts.extend(self._search_for_datasets(
                         remote_geonorge_base_url,
@@ -526,8 +523,8 @@ class GeonorgeHarvester(HarvesterBase):
 
                 pkg_dicts = \
                     self._get_modified_datasets(pkg_dicts,
-                                                    remote_geonorge_base_url,
-                                                    get_changes_since)
+                                                remote_geonorge_base_url,
+                                                get_changes_since)
 
             except SearchError, e:
                 log.info('Searching for datasets changed since last time '
@@ -575,6 +572,7 @@ class GeonorgeHarvester(HarvesterBase):
 
                 log.debug('Creating HarvestObject for %s %s',
                           pkg_dict['Title'], pkg_dict['Uuid'])
+                # Create and save the harvest object:
                 obj = HarvestObject(guid=pkg_dict['Uuid'],
                                     job=harvest_job,
                                     content=json.dumps(pkg_dict))
@@ -649,14 +647,12 @@ class GeonorgeHarvester(HarvesterBase):
             organization_name = package_dict['Organization']
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
-            info = {
-                    'name': package_dict.pop('Theme')
-                    }
+            info = {'name': package_dict.pop('Theme')}
             package_dict['tags'] = []
             package_dict['tags'].append(info)
 
             # Set default tags if needed
-            default_tags = self.config.get('default_tags', [])
+            default_tags = self.config.get('default_tags', False)
             if default_tags:
                 package_dict['tags'].extend(
                     [t for t in default_tags if t not in package_dict['tags']])
@@ -669,58 +665,17 @@ class GeonorgeHarvester(HarvesterBase):
                                                   'format': 'HTML',
                                                   'mimetype': 'text/html'})
             elif package_dict.get('DistributionProtocol') == 'GEONORGE:DOWNLOAD':
+                # Dataset can be downloaded from Geonorges download API
                 try:
                     package_dict['resources'] = []
                     dl_url = '%s%s%s' % (self._get_geonorge_download_url(),
                                          self._get_capabilities_api_offset(),
                                          package_dict.get('id', ''))
                     package_dict['resources'].append({'url': dl_url,
-                                                      'name': 'Download page'})
+                                                      'name': 'Geonorge download API',
+                                                      'format': 'application/json'})
                 except Exception, e:
                     log.error(e.message)
-
-                # try:
-                #     package_dict['resources'] = []
-                #
-                #     log.info('Making orderdata for dataset %s' % package_dict['id'])
-                #     payload = {"email": "bruker@epost.no",
-                #             "orderLines": [{"metadataUuid": package_dict['id']}]}
-                #     url = self._get_geonorge_download_url() + self._get_capabilities_api_offset() + package_dict['id']
-                #     capabilities_content = self._get_content(url)
-                #     capabilities_content_json = json.loads(capabilities_content)
-                #     resources_orderdata = {}
-                #     for capability in capabilities_content_json["_links"]:
-                #         cap_link = capability["href"]
-                #         capability_description = json.dumps(cap_link).split("/")
-                #         resource = capability_description[len(capability_description) - 2]
-                #         if resource in ["area", "format", "projection"]:
-                #             resources_orderdata["%ss" % resource] = cap_link
-                #     for rsrc in resources_orderdata:
-                #         resource_content = self._get_content(resources_orderdata[rsrc])
-                #         resource_content_json = json.loads(resource_content)
-                #         if rsrc == "areas":
-                #             areas_json = []
-                #             for area in resource_content_json:
-                #                 last_index = len(areas_json)
-                #                 areas_json.append({})
-                #                 for field in area:
-                #                     if field in ["code", "type", "name"]:
-                #                         areas_json[last_index][field] = area[field]
-                #             resource_content_json = areas_json
-                #         payload['orderLines'][0][rsrc] = resource_content_json
-                #     log.info('Orderdata was successfully made!')
-                #
-                #     log.info('Using orderdata to get resources.')
-                #     order_url = self._get_geonorge_download_url() + self._get_order_api_offset()
-                #     order_content = self._get_content(order_url, payload)
-                #     order_content_json = json.loads(order_content)
-                #     log.debug('Inserting files into resources.')
-                #     for files in order_content_json["files"]:
-                #         package_dict['resources'].append({'url': files["downloadUrl"],
-                #                                           'name': files["name"]})
-                #     log.info('Resources added.')
-                # except Exception, e:
-                #     log.error(e.message)
 
             # Local harvest source organization
             source_dataset = \
@@ -734,12 +689,9 @@ class GeonorgeHarvester(HarvesterBase):
                 # Assign dataset to the source organization
                 package_dict['owner_org'] = local_org
             else:
-                if not 'owner_org' in package_dict:
-                    package_dict['owner_org'] = None
-
                 # check if remote org exist locally, otherwise remove
                 validated_org = None
-                remote_org = package_dict['owner_org']
+                remote_org = package_dict.get('owner_org', None)
 
                 if remote_org:
                     try:
