@@ -8,6 +8,7 @@ import httplib
 import datetime
 import socket
 import re
+import uuid
 
 from sqlalchemy import exists
 
@@ -38,6 +39,10 @@ class DataNorgeHarvester(HarvesterBase):
 
     def _get_datanorge_base_url(self):
         return ''
+
+
+    def _get_new_uuid_from_id(self, guid):
+        return uuid.uuid3(uuid.NAMESPACE_URL, guid)
 
 
     def info(self):
@@ -290,7 +295,67 @@ class DataNorgeHarvester(HarvesterBase):
         '''
         log.debug('In DataNorgeHarvester gather_stage (%s)',
                   harvest_job.source.url)
-        return []
+        toolkit.requires_ckan_version(minimum='2.0')
+        get_all_packages = True
+
+        self._set_config
+
+        # Get source URL
+        remote_datanorge_base_url = harvest_job.source.url.rstrip('/')
+
+        pkg_dicts = []
+
+        # TODO: Implement "fq-terms".
+        fq_terms_list = []
+
+        # TODO: Implement "modified-since".
+        get_all_packages = True
+
+        # Fall-back option - request all the datasets from the remote CKAN
+        if get_all_packages:
+            # Request all remote packages
+            try:
+                for fq_terms in fq_terms_list:
+                    pkg_dicts.extend(self._search_for_datasets(remote_datanorge_base_url, fq_terms))
+            except SearchError, e:
+                log.info('Searching for all datasets gave an error: %s', e)
+                self._save_gather_error(
+                    'Unable to search remote DataNorge for datasets:%s url:%s'
+                    'terms:%s' % (e, remote_datanorge_base_url, fq_terms_list),
+                    harvest_job)
+                return None
+        if not pkg_dicts:
+            self._save_gather_error(
+                'No datasets found at DataNorge: %s' % remote_datanorge_base_url,
+                harvest_job)
+            return None
+
+        # Create harvest objects for each dataset
+        try:
+            package_ids = set()
+            object_ids = []
+            for pkg_dict in pkg_dicts:
+                pkg_dict['id'] = self._get_new_uuid_from_id(pkg_dict['id'])
+                if pkg_dict['id'] in package_ids:
+                    log.info('Discarding duplicate dataset %s - probably due '
+                             'to datasets being changed at the same time as '
+                             'when the harvester was paging through',
+                             pkg_dict['id'])
+                    continue
+                package_ids.add(pkg_dict['id'])
+
+                log.debug('Creating HarvestObject for %s %s',
+                          pkg_dict['title'], pkg_dict['id'])
+                # Create and save the harvest object:
+                obj = HarvestObject(guid=pkg_dict['id'],
+                                    job=harvest_job,
+                                    content=json.dumps(pkg_dict))
+                obj.save()
+                object_ids.append(obj.id)
+
+            return object_ids
+        except Exception, e:
+            self._save_gather_error('%r' % e.message, harvest_job)
 
 
     def fetch_stage(self, harvest_object):
