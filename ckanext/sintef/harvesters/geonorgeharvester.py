@@ -415,6 +415,20 @@ class GeonorgeHarvester(HarvesterBase):
         return http_response.read()
 
 
+    def get_metadata_provenance(self, harvest_object):
+        '''
+        This method provides metadata provenance to be used in the 'extras'
+        fields in the datasets that get imported.
+
+        :param: HarvestObject object.
+        :returns: A dictionary containing the harvest source URL and title.
+        '''
+        return {
+                'Source URL': harvest_object.source.url,
+                'Source title': harvest_object.source.title
+                }
+
+
     def gather_stage(self, harvest_job):
         '''
         The gather stage will receive a HarvestJob object and will be
@@ -636,7 +650,7 @@ class GeonorgeHarvester(HarvesterBase):
 
         try:
             package_dict = json.loads(harvest_object.content)
-            if package_dict.get('type', '') == 'harvest':
+            if package_dict.get('type') == 'harvest':
                 log.warn('Remote dataset is a harvest source, ignoring...')
                 return True
 
@@ -649,9 +663,10 @@ class GeonorgeHarvester(HarvesterBase):
             organization_name = package_dict['Organization']
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
-            info = {'name': package_dict.pop('Theme')}
-            package_dict['tags'] = []
-            package_dict['tags'].append(info)
+            if not 'tags' in package_dict
+                package_dict['tags'] = []
+
+            package_dict['tags'].append({'name': package_dict.pop('Theme')})
 
             # Set default tags if needed
             default_tags = self.config.get('default_tags', False)
@@ -721,46 +736,14 @@ class GeonorgeHarvester(HarvesterBase):
 
                 package_dict['owner_org'] = validated_org or local_org
 
-            # # Set default extras if needed
-            # default_extras = self.config.get('default_extras', {})
-            # def get_extra(key, package_dict):
-            #     for extra in package_dict.get('extras', []):
-            #         if extra['key'] == key:
-            #             return extra
-            # if default_extras:
-            #     override_extras = self.config.get('override_extras', False)
-            #     if not 'extras' in package_dict:
-            #         package_dict['extras'] = {}
-            #     for key, value in default_extras.iteritems():
-            #         existing_extra = get_extra(key, package_dict)
-            #         if existing_extra and not override_extras:
-            #             continue  # no need for the default
-            #         if existing_extra:
-            #             package_dict['extras'].remove(existing_extra)
-            #         # Look for replacement strings
-            #         if isinstance(value, basestring):
-            #             value = value.format(
-            #                 harvest_source_id=harvest_object.job.source.id,
-            #                 harvest_source_url=
-            #                 harvest_object.job.source.url.strip('/'),
-            #                 harvest_source_title=
-            #                 harvest_object.job.source.title,
-            #                 harvest_job_id=harvest_object.job.id,
-            #                 harvest_object_id=harvest_object.id,
-            #                 dataset_id=package_dict['id'])
-            #
-            #         package_dict['extras'].append({'key': key, 'value': value})
-            #
-            # for resource in package_dict.get('resources', []):
-            #     # Clear remote url_type for resources (eg datastore, upload) as
-            #     # we are only creating normal resources with links to the
-            #     # remote ones
-            #     resource.pop('url_type', None)
-            #
-            #     # Clear revision_id as the revision won't exist on this CKAN
-            #     # and saving it will cause an IntegrityError with the foreign
-            #     # key.
-            #     resource.pop('revision_id', None)
+            if not 'extras' in package_dict:
+                package_dict['extras'] = []
+
+            metadata_provenance = self.get_metadata_provenance(harvest_object)
+            for key, value in metadata_provenance.iteritems():
+                log.debug(key)
+                package_dict['extras'].append({'key': key, 'value': value})
+            log.debug(package_dict['extras'])
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')

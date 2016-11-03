@@ -264,7 +264,18 @@ class DataNorgeHarvester(HarvesterBase):
         :returns: A dictionary that contains only the metadata of the datasets
                   that was updated since last error-free harvesting job.
         '''
-        return {}
+        base_getdata_url = base_url + self._get_datanorge_api_offset()
+        new_pkg_dicts = list(pkg_dicts)
+
+        for pkg_dict in pkg_dicts:
+            # Checking if the dataset is up to date since last error-free
+            # harvest.
+            if pkg_dict.get('modified') < last_harvest:
+                log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
+                          pkg_dict.get('id'))
+                new_pkg_dicts.remove(pkg_dict)
+
+        return new_pkg_dicts
 
 
     def _get_content(self, url):
@@ -321,15 +332,51 @@ class DataNorgeHarvester(HarvesterBase):
         toolkit.requires_ckan_version(min_version='2.0')
         get_all_packages = True
 
-        self._set_config
+        self._set_config(harvest_job.source.config)
 
         # Get source URL
         remote_datanorge_base_url = harvest_job.source.url.rstrip('/')
 
         pkg_dicts = []
 
-        # TODO: Implement "modified-since".
-        get_all_packages = True
+        # Ideally we can request from the remote Geonorge only those datasets
+        # modified since the last completely successful harvest.
+        last_error_free_job = self._last_error_free_job(harvest_job)
+        log.debug('Last error-free job: %r', last_error_free_job)
+        if (last_error_free_job and
+                not self.config.get('force_all', False)):
+            get_all_packages = False
+
+            # Request only the datasets modified since
+            last_time = last_error_free_job.gather_started
+            # Note: SOLR works in UTC, and gather_started is also UTC, so
+            # this should work as long as local and remote clocks are
+            # relatively accurate. Going back a little earlier, just in case.
+            get_changes_since = \
+                (last_time - datetime.timedelta(hours=1)).isoformat()
+            log.info('Searching for datasets modified since: %s UTC',
+                     get_changes_since)
+
+            try:
+                # Add the result from the search to pkg_dicts.
+                pkg_dicts.extend(self._search_for_datasets(
+                    remote_datanorge_base_url))
+
+                pkg_dicts = \
+                    self._get_modified_datasets(pkg_dicts,
+                                                remote_datanorge_base_url,
+                                                get_changes_since)
+
+            except SearchError, e:
+                log.info('Searching for datasets changed since last time '
+                         'gave an error: %s', e)
+                get_all_packages = True
+
+            if not get_all_packages and not pkg_dicts:
+                log.info('No datasets have been updated on the remote '
+                         'DataNorge instance since the last harvest job %s',
+                         last_time)
+                return None
 
         # Fall-back option - request all the datasets from the remote DataNorge
         if get_all_packages:
@@ -437,14 +484,14 @@ class DataNorgeHarvester(HarvesterBase):
                 return True
 
             descriptions = package_dict.pop('description')
-            note = None
+            notes = None
 
             for item in descriptions:
                 if item.get('language') == 'nb':
-                    note = item.get('value')
+                    notes = item.get('value')
 
-            if note:
-                package_dict['notes'] = note
+            if notes:
+                package_dict['notes'] = notes
 
             source_dataset = \
                 get_action('package_show')(base_context.copy(),
