@@ -663,7 +663,7 @@ class GeonorgeHarvester(HarvesterBase):
             organization_name = package_dict['Organization']
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
-            if not 'tags' in package_dict
+            if not 'tags' in package_dict:
                 package_dict['tags'] = []
 
             package_dict['tags'].append({'name': package_dict.pop('Theme')})
@@ -741,9 +741,7 @@ class GeonorgeHarvester(HarvesterBase):
 
             metadata_provenance = self.get_metadata_provenance(harvest_object)
             for key, value in metadata_provenance.iteritems():
-                log.debug(key)
                 package_dict['extras'].append({'key': key, 'value': value})
-            log.debug(package_dict['extras'])
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
