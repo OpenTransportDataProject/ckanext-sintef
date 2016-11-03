@@ -33,12 +33,12 @@ class DataNorgeHarvester(HarvesterBase):
     config = None
 
 
-    def _get_search_api_offset(self):
-        return ''
-
-
     def _get_datanorge_base_url(self):
-        return ''
+        return 'http://data.norge.no/'
+
+
+    def _get_datanorge_api_offset(self):
+        return 'api/dcat/data.json'
 
 
     def _get_new_uuid_from_id(self, guid):
@@ -132,7 +132,6 @@ class DataNorgeHarvester(HarvesterBase):
         :param harvest_object_id: Config string coming from the form
         :returns: A string with the validated configuration options
         '''
-        '''
         if not config:
             return config
 
@@ -147,7 +146,6 @@ class DataNorgeHarvester(HarvesterBase):
             raise e
 
         return config
-        '''
 
 
     def get_original_url(self, harvest_object_id):
@@ -208,9 +206,9 @@ class DataNorgeHarvester(HarvesterBase):
         '''
 
 
-    def _search_for_datasets(self, remote_geonorge_base_url, fq_terms=None):
+    def _search_for_datasets(self, remote_datanorge_base_url, modified_since=None):
         '''
-        Does a dataset search on Geonorge with specified parameters and returns
+        Does a dataset search on Datanorge with specified parameters and returns
         the results.
         Deals with paging to get all the results.
 
@@ -218,7 +216,40 @@ class DataNorgeHarvester(HarvesterBase):
         :param fq_terms: Parameters to specify which datasets to search for
         :returns: A list of results from the search, containing dataset-metadata
         '''
-        return []
+        page = 1
+
+        base_search_url = remote_datanorge_base_url + self._get_datanorge_api_offset() + '?'
+
+        if modified_since:
+            base_search_url += urllib.urlencode({'modified_since': modified_since}) + '&'
+
+        pkg_dicts = []
+
+        while True:
+            url = base_search_url + urllib.urlencode({'page': page})
+
+            try:
+                content = self._get_content(url)
+                response_dict = json.loads(content)
+                package_dict_datasets = response_dict.get('datasets', [])
+            except ContentFetchError, e:
+                raise SearchError('Error sending request to search remote '
+                                  'Datanorge instance %s url %r. Error: %s' %
+                                  (remote_datanorge_base_url, url, e))
+            except ValueError:
+                raise SearchError('Response from remote Datanorge was not JSON: %r'
+                                  % content)
+            except ValueError:
+                raise SearchError('Response JSON did not contain '
+                                  'results: %r' % response_dict)
+
+            if len(package_dict_datasets) == 0:
+                break
+
+            pkg_dicts.extend(package_dict_datasets)
+            page += 1
+
+        return pkg_dicts
 
 
     def _get_modified_datasets(self, pkg_dicts, base_url, last_harvest):
@@ -237,25 +268,18 @@ class DataNorgeHarvester(HarvesterBase):
         return {}
 
 
-    def _get_content(self, url, data=None):
+    def _get_content(self, url):
         '''
-        This methods takes care of any HTTP-request that is made towards the
-        API's of Data Norge.
+        This methods takes care of any HTTP-request that is made towards
+        Geonorges kartkatalog API.
 
         :param url: String containing the URL to request content from.
-        :param data: Dictionary with JSON-data used in POST-requests towards the
-                     download API.
         :returns: The content from an HTTP-request.
         '''
-        http_request = urllib2.Request(url=url)
-
         try:
-            if not data:
-                http_response = urllib2.urlopen(http_request)
-            else:
-                http_request.add_header('Content-Type', 'application/json')
-                params = json.dumps(data)
-                http_response = urllib2.urlopen(http_request, data=params)
+            http_request = urllib2.Request(url=url)
+            http_response = urllib2.urlopen(http_request)
+
         except urllib2.HTTPError, e:
             if e.getcode() == 404:
                 raise ContentNotFoundError('HTTP error: %s' % e.code)
