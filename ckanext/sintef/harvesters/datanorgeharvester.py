@@ -38,11 +38,11 @@ class DataNorgeHarvester(HarvesterBase):
 
 
     def _get_datanorge_api_offset(self):
-        return 'api/dcat/data.json'
+        return '/api/dcat/data.json'
 
 
     def _get_new_uuid_from_id(self, guid):
-        return uuid.uuid3(uuid.NAMESPACE_URL, guid)
+        return str(uuid.uuid3(uuid.NAMESPACE_URL, guid))
 
 
     def info(self):
@@ -319,7 +319,7 @@ class DataNorgeHarvester(HarvesterBase):
         '''
         log.debug('In DataNorgeHarvester gather_stage (%s)',
                   harvest_job.source.url)
-        toolkit.requires_ckan_version(minimum='2.0')
+        toolkit.requires_ckan_version(min_version='2.0')
         get_all_packages = True
 
         self._set_config
@@ -329,9 +329,6 @@ class DataNorgeHarvester(HarvesterBase):
 
         pkg_dicts = []
 
-        # TODO: Implement "fq-terms".
-        fq_terms_list = []
-
         # TODO: Implement "modified-since".
         get_all_packages = True
 
@@ -339,13 +336,12 @@ class DataNorgeHarvester(HarvesterBase):
         if get_all_packages:
             # Request all remote packages
             try:
-                for fq_terms in fq_terms_list:
-                    pkg_dicts.extend(self._search_for_datasets(remote_datanorge_base_url, fq_terms))
+                pkg_dicts.extend(self._search_for_datasets(remote_datanorge_base_url))
             except SearchError, e:
                 log.info('Searching for all datasets gave an error: %s', e)
                 self._save_gather_error(
                     'Unable to search remote DataNorge for datasets:%s url:%s'
-                    'terms:%s' % (e, remote_datanorge_base_url, fq_terms_list),
+                    % (e, remote_datanorge_base_url),
                     harvest_job)
                 return None
         if not pkg_dicts:
