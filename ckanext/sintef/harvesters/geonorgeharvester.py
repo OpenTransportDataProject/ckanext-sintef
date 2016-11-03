@@ -497,7 +497,7 @@ class GeonorgeHarvester(HarvesterBase):
         list contains one search to be made.
         '''
 
-        # Ideally we can request from the remote CKAN only those datasets
+        # Ideally we can request from the remote Geonorge only those datasets
         # modified since the last completely successful harvest.
         last_error_free_job = self._last_error_free_job(harvest_job)
         log.debug('Last error-free job: %r', last_error_free_job)
@@ -535,12 +535,12 @@ class GeonorgeHarvester(HarvesterBase):
 
             if not get_all_packages and not pkg_dicts:
                 log.info('No datasets have been updated on the remote '
-                         'CKAN instance since the last harvest job %s',
+                         'Geonorge instance since the last harvest job %s',
                          last_time)
                 return None
 
 
-        # Fall-back option - request all the datasets from the remote CKAN
+        # Fall-back option - request all the datasets from the remote Geonorge
         if get_all_packages:
             # Request all remote packages
             try:
@@ -597,7 +597,7 @@ class GeonorgeHarvester(HarvesterBase):
         The import stage will receive a HarvestObject object and will be
         responsible for:
             - performing any necessary action with the fetched object (e.g.
-              create, update or delete a CKAN package).
+              create, update or delete a Geonorge package).
               Note: if this stage creates or updates a package, a reference
               to the package should be added to the HarvestObject.
             - setting the HarvestObject.package (if there is one)

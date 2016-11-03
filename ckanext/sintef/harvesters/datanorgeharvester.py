@@ -179,7 +179,6 @@ class DataNorgeHarvester(HarvesterBase):
         :param harvest_job: HarvestJob object.
         :returns: The last fully completed job of the harvester.
         '''
-        '''
         # look for jobs with no gather errors
         jobs = \
             model.Session.query(HarvestJob) \
@@ -203,7 +202,6 @@ class DataNorgeHarvester(HarvesterBase):
                     break
             else:
                 return job
-        '''
 
 
     def _search_for_datasets(self, remote_datanorge_base_url, modified_since=None):
@@ -286,7 +284,7 @@ class DataNorgeHarvester(HarvesterBase):
                 raise ContentNotFoundError('HTTP error: %s' % e.code)
             else:
                 return None
-                # raise ContentFetchError('HTTP error: %s' % e.code)
+                raise ContentFetchError('HTTP error: %s' % e.code)
         except urllib2.URLError, e:
             raise ContentFetchError('URL error: %s' % e.reason)
         except httplib.HTTPException, e:
@@ -333,11 +331,11 @@ class DataNorgeHarvester(HarvesterBase):
         # TODO: Implement "modified-since".
         get_all_packages = True
 
-        # Fall-back option - request all the datasets from the remote CKAN
+        # Fall-back option - request all the datasets from the remote DataNorge
         if get_all_packages:
             # Request all remote packages
             try:
-                pkg_dicts.extend(self._search_for_datasets(remote_datanorge_base_url))
+                pkg_dicts.extend(self._search_for_datasets(remote_datanorge_base_url, '2016-11-01'))
             except SearchError, e:
                 log.info('Searching for all datasets gave an error: %s', e)
                 self._save_gather_error(
@@ -395,7 +393,7 @@ class DataNorgeHarvester(HarvesterBase):
         The import stage will receive a HarvestObject object and will be
         responsible for:
             - performing any necessary action with the fetched object (e.g.
-              create, update or delete a CKAN package).
+              create, update or delete a DataNorge package).
               Note: if this stage creates or updates a package, a reference
               to the package should be added to the HarvestObject.
             - setting the HarvestObject.package (if there is one)
