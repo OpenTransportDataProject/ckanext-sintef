@@ -355,8 +355,13 @@ class DataNorgeHarvester(HarvesterBase):
         try:
             package_ids = set()
             object_ids = []
+
             for pkg_dict in pkg_dicts:
-                pkg_dict['id'] = self._get_new_uuid_from_id(pkg_dict['id'])
+                # Set URL to the DataNorge dataset's ID, which is the dataset's
+                # URL. Then create a new UUID based on the URL.
+                pkg_dict['url'] = pkg_dict.get('id')
+                pkg_dict['id'] = self._get_new_uuid_from_id(pkg_dict.get('url'))
+
                 if pkg_dict['id'] in package_ids:
                     log.info('Discarding duplicate dataset %s - probably due '
                              'to datasets being changed at the same time as '
@@ -412,6 +417,56 @@ class DataNorgeHarvester(HarvesterBase):
                   need harvesting after all or False if there were errors.
         '''
         log.debug('In DataNorgeHarvester import_stage')
+
+        base_context = {'model': model, 'session': model.Session,
+                        'user': self._get_user_name()}
+        if not harvest_object:
+            log.error('No harvest object received')
+            return False
+
+        if harvest_object.content is None:
+            self._save_object_error('Empty content for object %s' %
+                                    harvest_object.id,
+                                    harvest_object, 'Import')
+            return False
+
+        self._set_config(harvest_object.job.source.config)
+
+        try:
+            package_dict = json.loads(harvest_object.content)
+            if package_dict.get('type', '') == 'harvest':
+                log.warn('Remote dataset is a harvest source, ignoring...')
+                return True
+
+            descriptions = package_dict.pop('description')
+            note = None
+
+            for item in descriptions:
+                if item.get('language') == 'nb':
+                    note = item.get('value')
+
+            if note:
+                package_dict['notes'] = note
+
+            source_dataset = \
+                get_action('package_show')(base_context.copy(),
+                                           {'id': harvest_object.source.id})
+
+            package_dict['owner_org'] = source_dataset.get('owner_org')
+
+
+            result = self._create_or_update_package(
+                package_dict, harvest_object, package_dict_form='package_show')
+
+            return result
+        except ValidationError, e:
+            self._save_object_error('Invalid package with GUID %s: %r' %
+                                    (harvest_object.guid, e.error_dict),
+                                    harvest_object, 'Import')
+            log.error(e.error_dict)
+        except Exception, e:
+            self._save_object_error('%s' % e, harvest_object, 'Import')
+
         return True
 
 class SearchError(Exception):
