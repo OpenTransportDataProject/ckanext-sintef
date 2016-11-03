@@ -213,7 +213,8 @@ class DataNorgeHarvester(HarvesterBase):
         Deals with paging to get all the results.
 
         :param remote_geonorge_base_url: Geonorge base url
-        :param fq_terms: Parameters to specify which datasets to search for
+        :param modified_since: Search only for datasets modified since this date
+                               format: 'yyyy-mm-dd' as a string.
         :returns: A list of results from the search, containing dataset-metadata
         '''
         page = 1
