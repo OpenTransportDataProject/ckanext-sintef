@@ -402,6 +402,8 @@ class DataNorgeHarvester(HarvesterBase):
             object_ids = []
 
             for pkg_dict in pkg_dicts:
+                # TODO: Filter out datasets.
+
                 # Set URL to the DataNorge dataset's ID, which is the dataset's
                 # URL. Then create a new UUID based on the URL.
                 pkg_dict['url'] = pkg_dict.get('id')
