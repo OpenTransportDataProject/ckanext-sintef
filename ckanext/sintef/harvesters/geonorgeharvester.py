@@ -294,6 +294,9 @@ class GeonorgeHarvester(HarvesterBase):
         # Set the parameters to be readable by geonorge's API
         fq_term_counter = 0
         for fq_term in fq_terms:
+            if fq_term == 'text':
+                params.update({'text': fq_terms['text']})
+                continue
             params.update({'facets[' + str(fq_term_counter) + ']name': fq_term})
             params.update({'facets[' + str(fq_term_counter) + ']value': "%s" % (fq_terms[fq_term])})
             fq_term_counter += 1

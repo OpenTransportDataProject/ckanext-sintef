@@ -138,7 +138,29 @@ class DataNorgeHarvester(HarvesterBase):
         try:
             config_obj = json.loads(config)
 
+            # Check if 'publisher' is a string or a list of strings
+            if 'publisher' in config_obj:
+                if not isinstance(config_obj['publisher'], list):
+                    if not isinstance(config_obj['publisher'], basestring):
+                        raise ValueError('publisher must be a string '
+                        'or a list of strings, %s is neither' % config_obj['publisher'])
+                else:
+                    for publisher in config_obj['publisher']:
+                        if not isinstance(publisher, basestring):
+                            raise ValueError('publisher must be a string '
+                            'or a list of strings, %s is neither' % publisher)
 
+            # Check if 'publisher' is a string or a list of strings
+            if 'keyword' in config_obj:
+                if not isinstance(config_obj['keyword'], list):
+                    if not isinstance(config_obj['keyword'], basestring):
+                        raise ValueError('keyword must be a string '
+                        'or a list of strings, %s is neither' % config_obj['keyword'])
+                else:
+                    for keyword in config_obj['keyword']:
+                        if not isinstance(keyword, basestring):
+                            raise ValueError('keyword must be a string '
+                            'or a list of strings, %s is neither' % keyword)
 
             config = json.dumps(config_obj)
 
@@ -373,6 +395,9 @@ class DataNorgeHarvester(HarvesterBase):
             object_ids = []
 
             for pkg_dict in pkg_dicts:
+                # TODO: Filter out datasets.
+
+
                 # Set URL to the DataNorge dataset's ID, which is the dataset's
                 # URL. Then create a new UUID based on the URL.
                 pkg_dict['url'] = pkg_dict.get('id')
