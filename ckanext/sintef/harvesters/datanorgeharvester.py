@@ -373,10 +373,8 @@ class DataNorgeHarvester(HarvesterBase):
         if get_all_packages:
             # Request all remote packages
             try:
-                # TODO: Remove static modified-since date in
-                # _search_for_datasets-call when filtering is implemented.
                 pkg_dicts.extend(self._search_for_datasets(
-                    remote_datanorge_base_url, '2016-11-01'))
+                    remote_datanorge_base_url))
             except SearchError, e:
                 log.info('Searching for all datasets gave an error: %s', e)
                 self._save_gather_error(
