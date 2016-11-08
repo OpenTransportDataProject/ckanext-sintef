@@ -156,7 +156,7 @@ class DataNorgeHarvester(HarvesterBase):
                                         (item, config_obj[element][item]))
 
             # Check if 'filter' is a string or a list of strings if it is defined
-            check_if_element_is_string_or_list_in_config_obj('publisher')
+            check_if_element_is_string_or_list_in_config_obj('organization')
             check_if_element_is_string_or_list_in_config_obj('keyword')
 
             # Check if 'remote_orgs' is set to 'create' if it is defined
@@ -398,15 +398,15 @@ class DataNorgeHarvester(HarvesterBase):
             object_ids = []
 
             for pkg_dict in pkg_dicts:
-                publisher_filter = self.config.get('publisher', None)
+                organization_filter = self.config.get('organization', None)
                 keyword_filter = self.config.get('keyword', None)
                 passed_filter = True
-                this_publisher = pkg_dict.get('publisher').get('name')
+                this_organization = pkg_dict.get('publisher').get('name')
                 this_keywords = pkg_dict.get('keyword')
 
-                if not publisher_filter == None:
-                    # If this publisher is unwanted, continue.
-                    if not this_publisher in publisher_filter:
+                if not organization_filter == None:
+                    # If this organization is unwanted, continue.
+                    if not this_organization in organization_filter:
                         continue
 
                 if not keyword_filter == None:
