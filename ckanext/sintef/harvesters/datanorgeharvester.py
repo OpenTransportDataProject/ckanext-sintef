@@ -307,6 +307,20 @@ class DataNorgeHarvester(HarvesterBase):
         return http_response.read()
 
 
+    def get_metadata_provenance(self, harvest_object):
+        '''
+        This method provides metadata provenance to be used in the 'extras'
+        fields in the datasets that get imported.
+
+        :param: HarvestObject object.
+        :returns: A dictionary containing the harvest source URL and title.
+        '''
+        return {
+                'Source URL': harvest_object.source.url,
+                'Source title': harvest_object.source.title
+               }
+
+
     def gather_stage(self, harvest_job):
         '''
         The gather stage will receive a HarvestJob object and will be
@@ -566,6 +580,13 @@ class DataNorgeHarvester(HarvesterBase):
 
                 package_dict['owner_org'] = validated_org or local_org
 
+
+            if not 'extras' in package_dict:
+                package_dict['extras'] = []
+
+            metadata_provenance = self.get_metadata_provenance(harvest_object)
+            for key, value in metadata_provenance.iteritems():
+                package_dict['extras'].append({'key': key, 'value': value})
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
