@@ -396,7 +396,21 @@ class DataNorgeHarvester(HarvesterBase):
             object_ids = []
 
             for pkg_dict in pkg_dicts:
-                # TODO: Filter out datasets.
+                publisher_filter = self.config.get('publisher', None)
+                keyword_filter = self.config.get('keyword', None)
+                passed_filter = True
+                this_publisher = pkg_dict.get('publisher').get('name')
+                this_keywords = pkg_dict.get('keyword')
+
+                if not publisher_filter == None:
+                    # If this publisher is unwanted, continue.
+                    if not this_publisher in publisher_filter:
+                        continue
+
+                if not keyword_filter == None:
+                    # If none of the keywords match, continue.
+                    if not [kw for kw in this_keywords if kw in keyword_filter]:
+                        continue
 
 
                 # Set URL to the DataNorge dataset's ID, which is the dataset's
