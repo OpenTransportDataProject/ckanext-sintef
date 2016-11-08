@@ -139,29 +139,33 @@ class DataNorgeHarvester(HarvesterBase):
         try:
             config_obj = json.loads(config)
 
-            # Check if 'publisher' is a string or a list of strings
-            if 'publisher' in config_obj:
-                if not isinstance(config_obj['publisher'], list):
-                    if not isinstance(config_obj['publisher'], basestring):
-                        raise ValueError('publisher must be a string '
-                        'or a list of strings, %s is neither' % config_obj['publisher'])
-                else:
-                    for publisher in config_obj['publisher']:
-                        if not isinstance(publisher, basestring):
-                            raise ValueError('publisher must be a string '
-                            'or a list of strings, %s is neither' % publisher)
+            # This method is used to check if 'element' is in config_obj
+            # and that it is defined as either a string or a list of strings.
+            def check_if_element_is_string_or_list_in_config_obj(element):
+                if element in config_obj:
+                    if not isinstance(config_obj[element], list):
+                        if not isinstance(config_obj[element], basestring):
+                            raise ValueError('%s must be a string '
+                                    'or a list of strings, %s is neither' %
+                                    (element, config_obj[element]))
+                    else:
+                        for item in config_obj[element]:
+                            if not isinstance(item, basestring):
+                                raise ValueError('%s must be a string '
+                                        'or a list of strings, %s is neither' %
+                                        (item, config_obj[element][item]))
 
-            # Check if 'publisher' is a string or a list of strings
-            if 'keyword' in config_obj:
-                if not isinstance(config_obj['keyword'], list):
-                    if not isinstance(config_obj['keyword'], basestring):
-                        raise ValueError('keyword must be a string '
-                        'or a list of strings, %s is neither' % config_obj['keyword'])
-                else:
-                    for keyword in config_obj['keyword']:
-                        if not isinstance(keyword, basestring):
-                            raise ValueError('keyword must be a string '
-                            'or a list of strings, %s is neither' % keyword)
+            # Check if 'filter' is a string or a list of strings if it is defined
+            check_if_element_is_string_or_list_in_config_obj('organization')
+            check_if_element_is_string_or_list_in_config_obj('keyword')
+
+            # Check if 'remote_orgs' is set to 'create' if it is defined
+            if 'remote_orgs' in config_obj and not config_obj['remote_orgs'] == 'create':
+                    raise ValueError('remote_orgs can only be set to "create"')
+
+            # Check if 'force_all' is a boolean value
+            if 'force_all' in config_obj and not isinstance(config_obj['force_all'], bool):
+                    raise ValueError('force_all must be a boolean, either True or False')
 
             config = json.dumps(config_obj)
 
@@ -303,6 +307,20 @@ class DataNorgeHarvester(HarvesterBase):
         return http_response.read()
 
 
+    def get_metadata_provenance(self, harvest_object):
+        '''
+        This method provides metadata provenance to be used in the 'extras'
+        fields in the datasets that get imported.
+
+        :param: HarvestObject object.
+        :returns: A dictionary containing the harvest source URL and title.
+        '''
+        return {
+                'Source URL': harvest_object.source.url,
+                'Source title': harvest_object.source.title
+               }
+
+
     def gather_stage(self, harvest_job):
         '''
         The gather stage will receive a HarvestJob object and will be
@@ -394,15 +412,15 @@ class DataNorgeHarvester(HarvesterBase):
             object_ids = []
 
             for pkg_dict in pkg_dicts:
-                publisher_filter = self.config.get('publisher', None)
+                organization_filter = self.config.get('organization', None)
                 keyword_filter = self.config.get('keyword', None)
                 passed_filter = True
-                this_publisher = pkg_dict.get('publisher').get('name')
+                this_organization = pkg_dict.get('publisher').get('name')
                 this_keywords = pkg_dict.get('keyword')
 
-                if not publisher_filter == None:
-                    # If this publisher is unwanted, continue.
-                    if not this_publisher in publisher_filter:
+                if not organization_filter == None:
+                    # If this organization is unwanted, continue.
+                    if not this_organization in organization_filter:
                         continue
 
                 if not keyword_filter == None:
@@ -582,6 +600,13 @@ class DataNorgeHarvester(HarvesterBase):
 
                 package_dict['owner_org'] = validated_org or local_org
 
+
+            if not 'extras' in package_dict:
+                package_dict['extras'] = []
+
+            metadata_provenance = self.get_metadata_provenance(harvest_object)
+            for key, value in metadata_provenance.iteritems():
+                package_dict['extras'].append({'key': key, 'value': value})
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')

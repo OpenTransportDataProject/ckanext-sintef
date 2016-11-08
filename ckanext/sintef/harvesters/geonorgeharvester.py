@@ -145,65 +145,37 @@ class GeonorgeHarvester(HarvesterBase):
         try:
             config_obj = json.loads(config)
 
-            # Check if 'theme' is a list of strings if it is defined
-            if 'theme' in config_obj:
-                if not isinstance(config_obj['theme'], list):
-                    raise ValueError('theme must be a *list* of themes')
-                if not isinstance(config_obj['theme'][0], basestring):
-                    raise ValueError('theme must be a list of strings')
+            # This method is used to check if 'element' is in config_obj
+            # and that it is defined as either a string or a list of strings.
+            def check_if_element_is_string_or_list_in_config_obj(element):
+                if element in config_obj:
+                    if not isinstance(config_obj[element], list):
+                        if not isinstance(config_obj[element], basestring):
+                            raise ValueError('%s must be a string '
+                                    'or a list of strings, %s is neither' %
+                                    (element, config_obj[element]))
+                    else:
+                        for item in config_obj[element]:
+                            if not isinstance(item, basestring):
+                                raise ValueError('%s must be a string '
+                                        'or a list of strings, %s is neither' %
+                                        (item, config_obj[element][item]))
 
-            # Check if 'organization' is a list of strings if it is defined
-            if 'organization' in config_obj:
-                if not isinstance(config_obj['organization'], list):
-                    raise ValueError('organization must be a *list* of organizations')
-                if not isinstance(config_obj['organization'][0], basestring):
-                    raise ValueError('organization must be a list of strings')
-
-            # Check if 'text' is a list of strings if it is defined
-            if 'text' in config_obj:
-                if not isinstance(config_obj['text'], list):
-                    raise ValueError('text must be a *list* of texts')
-                if not isinstance(config_obj['text'][0], basestring):
-                    raise ValueError('text must be a list of strings')
-
-            # Check if 'title' is a list of strings if it is defined
-            if 'title' in config_obj:
-                if not isinstance(config_obj['title'], list):
-                    raise ValueError('title must be a *list* of titles')
-                if not isinstance(config_obj['title'][0], basestring):
-                    raise ValueError('title must be a list of strings')
-
-            # Check if 'uuid' is a list of strings if it is defined
-            if 'uuid' in config_obj:
-                if not isinstance(config_obj['uuid'], list):
-                    raise ValueError('uuid must be a *list* of uuids')
-                if not isinstance(config_obj['uuid'][0], basestring):
-                    raise ValueError('uuid must be a list of strings')
-
-            # Check if 'type' is a list of strings if it is defined
-            # Set to 'dataset' if not defined
-            if 'datatype' in config_obj:
-                if not isinstance(config_obj['datatype'], list):
-                    raise ValueError('datatype must be a *list* of datatypes')
-                if not isinstance(config_obj['datatype'][0], basestring):
-                    raise ValueError('datatype must be a list of strings')
-
-            # Check if 'default_tags' is a list of strings if it is defined
-            if 'default_tags' in config_obj:
-                if not isinstance(config_obj['default_tags'], list):
-                    raise ValueError('default_tags must be a *list* of tags')
-                if not isinstance(config_obj['default_tags'][0], basestring):
-                    raise ValueError('default_tags must be a list of strings')
+            # Check if 'filter' is a string or a list of strings if it is defined
+            check_if_element_is_string_or_list_in_config_obj('theme')
+            check_if_element_is_string_or_list_in_config_obj('organization')
+            check_if_element_is_string_or_list_in_config_obj('text')
+            check_if_element_is_string_or_list_in_config_obj('title')
+            check_if_element_is_string_or_list_in_config_obj('uuid')
+            check_if_element_is_string_or_list_in_config_obj('datatype')
+            check_if_element_is_string_or_list_in_config_obj('default_tags')
 
             # Check if 'remote_orgs' is set to 'create' if it is defined
-            if 'remote_orgs' in config_obj:
-                if not config_obj['remote_orgs'] == 'create':
+            if 'remote_orgs' in config_obj and not config_obj['remote_orgs'] == 'create':
                     raise ValueError('remote_orgs can only be set to "create"')
 
             # Check if 'force_all' is a boolean value
-            # Set to False if not defined
-            if 'force_all' in config_obj:
-                if not isinstance(config_obj['force_all'], bool):
+            if 'force_all' in config_obj and not isinstance(config_obj['force_all'], bool):
                     raise ValueError('force_all must be a boolean, either True or False')
 
             config = json.dumps(config_obj)
