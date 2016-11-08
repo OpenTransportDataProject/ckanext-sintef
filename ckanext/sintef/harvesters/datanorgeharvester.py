@@ -9,6 +9,7 @@ import datetime
 import socket
 import re
 import uuid
+from bs4 import BeautifulSoup
 
 from sqlalchemy import exists
 
@@ -376,10 +377,8 @@ class DataNorgeHarvester(HarvesterBase):
         if get_all_packages:
             # Request all remote packages
             try:
-                # TODO: Remove static modified-since date in
-                # _search_for_datasets-call when filtering is implemented.
                 pkg_dicts.extend(self._search_for_datasets(
-                    remote_datanorge_base_url, '2016-11-01'))
+                    remote_datanorge_base_url))
             except SearchError, e:
                 log.info('Searching for all datasets gave an error: %s', e)
                 self._save_gather_error(
@@ -497,6 +496,9 @@ class DataNorgeHarvester(HarvesterBase):
                 log.warn('Remote dataset is a harvest source, ignoring...')
                 return True
 
+            organization_name = package_dict['publisher'].get('name')
+            package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
+
             descriptions = package_dict.pop('description')
             notes = None
 
@@ -511,7 +513,58 @@ class DataNorgeHarvester(HarvesterBase):
                 get_action('package_show')(base_context.copy(),
                                            {'id': harvest_object.source.id})
 
-            package_dict['owner_org'] = source_dataset.get('owner_org')
+            # Local harvest source organization
+            source_dataset = \
+                get_action('package_show')(base_context.copy(),
+                                           {'id': harvest_object.source.id})
+            local_org = source_dataset.get('owner_org')
+
+            remote_orgs = self.config.get('remote_orgs', None)
+
+            if not remote_orgs == 'create':
+                # Assign dataset to the source organization
+                package_dict['owner_org'] = local_org
+            else:
+                # check if remote org exist locally, otherwise remove
+                validated_org = None
+                remote_org = package_dict.get('owner_org', None)
+
+                if remote_org:
+                    try:
+                        data_dict = {'id': remote_org}
+                        org = get_action('organization_show')(base_context.copy(), data_dict)
+                        if org.get('state') == 'deleted':
+                            patch_org = {'id': org.get('id'),
+                                         'state': 'active'}
+                            get_action('organization_patch')(base_context.copy(), patch_org)
+                        validated_org = org['id']
+                    except NotFound, e:
+                        log.info('Organization %s is not available', remote_org)
+                        if remote_orgs == 'create':
+                            try:
+                                new_org = {'name': package_dict.get('owner_org'),
+                                           'title': organization_name}
+
+                                try:
+                                    html_source = BeautifulSoup(
+                                        urllib.urlopen(package_dict.get('url')).read())
+                                    img_source = html_source.body.find(
+                                        'div', attrs={'class': 'logo'}).img.get('src')
+                                except AttributeError, e:
+                                    img_source = None
+                                    log.debug('No logo was found for remote org %s.', remote_org)
+
+                                if img_source:
+                                    new_org['image_url'] = img_source
+
+                                org = get_action('organization_create')(base_context.copy(), new_org)
+
+                                log.info('Organization %s has been newly created', remote_org)
+                                validated_org = org['id']
+                            except (RemoteResourceError, ValidationError):
+                                log.error('Could not get remote org %s', remote_org)
+
+                package_dict['owner_org'] = validated_org or local_org
 
 
             result = self._create_or_update_package(
