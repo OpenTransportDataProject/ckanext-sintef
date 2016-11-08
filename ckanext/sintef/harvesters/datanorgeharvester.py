@@ -495,15 +495,35 @@ class DataNorgeHarvester(HarvesterBase):
             organization_name = package_dict['publisher'].get('name')
             package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
 
+            if not 'tags' in package_dict:
+                package_dict['tags'] = []
+
+            for keyword in package_dict.get('keyword'):
+                package_dict['tags'].append({'name': keyword})
+            # Set default tags if needed
+            default_tags = self.config.get('default_tags', False)
+            if default_tags:
+                package_dict['tags'].extend(
+                    [t for t in default_tags if t not in package_dict['tags']])
+
+            # Sets a description to the dataset.
             descriptions = package_dict.pop('description')
             notes = None
-
             for item in descriptions:
                 if item.get('language') == 'nb':
                     notes = item.get('value')
-
             if notes:
                 package_dict['notes'] = notes
+
+            if not 'resources' in package_dict:
+                package_dict['resources'] = []
+            for resource in package_dict.get('distribution'):
+                for item in resource.get('description'):
+                    if item.get('language') == 'nb':
+                        name = item.get('value')
+                package_dict['resources'].append({'url': resource.get('accessURL'),
+                                                  'name': name,
+                                                  'format': resource.get('format')})
 
             source_dataset = \
                 get_action('package_show')(base_context.copy(),
