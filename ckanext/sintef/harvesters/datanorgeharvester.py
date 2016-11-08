@@ -251,33 +251,6 @@ class DataNorgeHarvester(HarvesterBase):
         return pkg_dicts
 
 
-    def _get_modified_datasets(self, pkg_dicts, base_url, last_harvest):
-        '''
-        If the harvester has had at least one error-free job in the past, this
-        method is used to remove any result in the given dictionary, that has
-        not been changed/updated since the last error-free job.
-
-        :param pkg_dicts: Dictionary containing dataset metadata.
-        :param base_url: String containing the base URL of the harvesting
-                         source.
-        :param last_harvest: HarvestJob object.
-        :returns: A dictionary that contains only the metadata of the datasets
-                  that was updated since last error-free harvesting job.
-        '''
-        base_getdata_url = base_url + self._get_datanorge_api_offset()
-        new_pkg_dicts = list(pkg_dicts)
-
-        for pkg_dict in pkg_dicts:
-            # Checking if the dataset is up to date since last error-free
-            # harvest.
-            if pkg_dict.get('modified') < last_harvest:
-                log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
-                          pkg_dict.get('id'))
-                new_pkg_dicts.remove(pkg_dict)
-
-        return new_pkg_dicts
-
-
     def _get_content(self, url):
         '''
         This methods takes care of any HTTP-request that is made towards
@@ -353,19 +326,14 @@ class DataNorgeHarvester(HarvesterBase):
             # this should work as long as local and remote clocks are
             # relatively accurate. Going back a little earlier, just in case.
             get_changes_since = \
-                (last_time - datetime.timedelta(hours=1)).isoformat()
+                (str(last_time - datetime.timedelta(hours=1)).split(' '))[0]
             log.info('Searching for datasets modified since: %s UTC',
                      get_changes_since)
 
             try:
                 # Add the result from the search to pkg_dicts.
                 pkg_dicts.extend(self._search_for_datasets(
-                    remote_datanorge_base_url))
-
-                pkg_dicts = \
-                    self._get_modified_datasets(pkg_dicts,
-                                                remote_datanorge_base_url,
-                                                get_changes_since)
+                    remote_datanorge_base_url, get_changes_since))
 
             except SearchError, e:
                 log.info('Searching for datasets changed since last time '
@@ -382,7 +350,10 @@ class DataNorgeHarvester(HarvesterBase):
         if get_all_packages:
             # Request all remote packages
             try:
-                pkg_dicts.extend(self._search_for_datasets(remote_datanorge_base_url, '2016-11-01'))
+                # TODO: Remove static modified-since date in
+                # _search_for_datasets-call when filtering is implemented.
+                pkg_dicts.extend(self._search_for_datasets(
+                    remote_datanorge_base_url, '2016-11-01'))
             except SearchError, e:
                 log.info('Searching for all datasets gave an error: %s', e)
                 self._save_gather_error(
