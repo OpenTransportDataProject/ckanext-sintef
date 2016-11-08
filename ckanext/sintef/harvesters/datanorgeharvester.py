@@ -138,33 +138,32 @@ class DataNorgeHarvester(HarvesterBase):
         try:
             config_obj = json.loads(config)
 
-            # Check if 'publisher' is a string or a list of strings
-            if 'publisher' in config_obj:
-                if not isinstance(config_obj['publisher'], list):
-                    if not isinstance(config_obj['publisher'], basestring):
-                        raise ValueError('publisher must be a string '
-                        'or a list of strings, %s is neither' % config_obj['publisher'])
-                else:
-                    for publisher in config_obj['publisher']:
-                        if not isinstance(publisher, basestring):
-                            raise ValueError('publisher must be a string '
-                            'or a list of strings, %s is neither' % publisher)
+            # This method is used to check if 'element' is in config_obj
+            # and that it is defined as either a string or a list of strings.
+            def check_if_element_is_string_or_list_in_config_obj(element):
+                if element in config_obj:
+                    if not isinstance(config_obj[element], list):
+                        if not isinstance(config_obj[element], basestring):
+                            raise ValueError('%s must be a string '
+                                    'or a list of strings, %s is neither' %
+                                    (element, config_obj[element]))
+                    else:
+                        for item in config_obj[element]:
+                            if not isinstance(item, basestring):
+                                raise ValueError('%s must be a string '
+                                        'or a list of strings, %s is neither' %
+                                        (item, config_obj[element][item]))
 
-            # Check if 'publisher' is a string or a list of strings
-            if 'keyword' in config_obj:
-                if not isinstance(config_obj['keyword'], list):
-                    if not isinstance(config_obj['keyword'], basestring):
-                        raise ValueError('keyword must be a string '
-                        'or a list of strings, %s is neither' % config_obj['keyword'])
-                else:
-                    for keyword in config_obj['keyword']:
-                        if not isinstance(keyword, basestring):
-                            raise ValueError('keyword must be a string '
-                            'or a list of strings, %s is neither' % keyword)
+            # Check if 'filter' is a string or a list of strings if it is defined
+            check_if_element_is_string_or_list_in_config_obj('publisher')
+            check_if_element_is_string_or_list_in_config_obj('keyword')
+
+            # Check if 'remote_orgs' is set to 'create' if it is defined
+            if 'remote_orgs' in config_obj and not config_obj['remote_orgs'] == 'create':
+                    raise ValueError('remote_orgs can only be set to "create"')
 
             # Check if 'force_all' is a boolean value
-            if 'force_all' in config_obj:
-                if not isinstance(config_obj['force_all'], bool):
+            if 'force_all' in config_obj and not isinstance(config_obj['force_all'], bool):
                     raise ValueError('force_all must be a boolean, either True or False')
 
             config = json.dumps(config_obj)
