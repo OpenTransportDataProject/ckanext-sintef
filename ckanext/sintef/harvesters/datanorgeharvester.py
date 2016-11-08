@@ -157,7 +157,7 @@ class DataNorgeHarvester(HarvesterBase):
 
             # Check if 'filter' is a string or a list of strings if it is defined
             check_if_element_is_string_or_list_in_config_obj('organization')
-            check_if_element_is_string_or_list_in_config_obj('keyword')
+            check_if_element_is_string_or_list_in_config_obj('theme')
 
             # Check if 'remote_orgs' is set to 'create' if it is defined
             if 'remote_orgs' in config_obj and not config_obj['remote_orgs'] == 'create':
@@ -413,19 +413,19 @@ class DataNorgeHarvester(HarvesterBase):
 
             for pkg_dict in pkg_dicts:
                 organization_filter = self.config.get('organization', None)
-                keyword_filter = self.config.get('keyword', None)
+                theme_filter = self.config.get('theme', None)
                 passed_filter = True
                 this_organization = pkg_dict.get('publisher').get('name')
-                this_keywords = pkg_dict.get('keyword')
+                this_themes = pkg_dict.get('keyword')
 
                 if not organization_filter == None:
                     # If this organization is unwanted, continue.
                     if not this_organization in organization_filter:
                         continue
 
-                if not keyword_filter == None:
-                    # If none of the keywords match, continue.
-                    if not [kw for kw in this_keywords if kw in keyword_filter]:
+                if not theme_filter == None:
+                    # If none of the themes match, continue.
+                    if not [kw for kw in this_themes if kw in theme_filter]:
                         continue
 
 
