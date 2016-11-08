@@ -162,6 +162,11 @@ class DataNorgeHarvester(HarvesterBase):
                             raise ValueError('keyword must be a string '
                             'or a list of strings, %s is neither' % keyword)
 
+            # Check if 'force_all' is a boolean value
+            if 'force_all' in config_obj:
+                if not isinstance(config_obj['force_all'], bool):
+                    raise ValueError('force_all must be a boolean, either True or False')
+
             config = json.dumps(config_obj)
 
         except ValueError, e:
