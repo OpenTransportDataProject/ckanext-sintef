@@ -516,9 +516,11 @@ class DataNorgeHarvester(HarvesterBase):
             if not 'tags' in package_dict:
                 package_dict['tags'] = []
 
-            for keyword in package_dict.get('keyword'):
-                package_dict['tags'].append({'name': keyword})
-            # Set default tags if needed
+            # TODO: CKAN tags don't accept commas, while keywords from datanorge
+            # do contain them. A solution for this may be to create groups from
+            # the keywords, since they're not really seen as 'tags' in
+            # datanorge. The tags in datanorge are not accessable via their API.
+
             default_tags = self.config.get('default_tags', False)
             if default_tags:
                 package_dict['tags'].extend(
