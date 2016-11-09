@@ -237,7 +237,7 @@ class DataNorgeHarvester(HarvesterBase):
         the results.
         Deals with paging to get all the results.
 
-        :param remote_geonorge_base_url: Geonorge base url
+        :param remote_datanorge_base_url: Datanorge base url
         :param modified_since: Search only for datasets modified since this date
                                format: 'yyyy-mm-dd' as a string.
         :returns: A list of results from the search, containing dataset-metadata
@@ -281,7 +281,7 @@ class DataNorgeHarvester(HarvesterBase):
     def _get_content(self, url):
         '''
         This methods takes care of any HTTP-request that is made towards
-        Geonorges kartkatalog API.
+        Datanorges kartkatalog API.
 
         :param url: String containing the URL to request content from.
         :returns: The content from an HTTP-request.
@@ -353,7 +353,7 @@ class DataNorgeHarvester(HarvesterBase):
 
         pkg_dicts = []
 
-        # Ideally we can request from the remote Geonorge only those datasets
+        # Ideally we can request from the remote Datanorge only those datasets
         # modified since the last completely successful harvest.
         last_error_free_job = self._last_error_free_job(harvest_job)
         log.debug('Last error-free job: %r', last_error_free_job)
