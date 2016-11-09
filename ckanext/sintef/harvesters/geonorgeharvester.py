@@ -655,13 +655,7 @@ class GeonorgeHarvester(HarvesterBase):
                     [t for t in default_tags if t not in package_dict['tags']])
 
             # Check if url to every file to the dataset should be added to 'resources'
-            if package_dict.get('DistributionProtocol') == 'WWW:DOWNLOAD-1.0-http--download':
-                package_dict['resources'] = []
-                package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
-                                                  'name': 'Download page',
-                                                  'format': 'HTML',
-                                                  'mimetype': 'text/html'})
-            elif package_dict.get('DistributionProtocol') == 'GEONORGE:DOWNLOAD':
+            if package_dict.get('DistributionProtocol') == 'GEONORGE:DOWNLOAD':
                 # Dataset can be downloaded from Geonorges download API
                 try:
                     package_dict['resources'] = []
@@ -673,6 +667,13 @@ class GeonorgeHarvester(HarvesterBase):
                                                       'format': 'application/json'})
                 except Exception, e:
                     log.error(e.message)
+            else:
+                package_dict['resources'] = []
+                package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
+                                                  'name': 'Download page',
+                                                  'format': 'HTML',
+                                                  'mimetype': 'text/html'})
+            
 
             # Local harvest source organization
             source_dataset = \
