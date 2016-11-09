@@ -451,13 +451,18 @@ class GeonorgeHarvester(HarvesterBase):
         fq_terms_list_length = 1
         for filter_item in self.config:
             if filter_item in ['theme', 'organization', 'text', 'title', 'uuid']:
-                filter_include[filter_item] = self.config.get(filter_item, [])
+                config_item = self.config[filter_item]
+                if isinstance(config_item, basestring): config_item = [config_item]
+                filter_include[filter_item] = config_item
                 fq_terms_list_length *= len(filter_include[filter_item])
             elif filter_item == 'datatype':
                 # There was a key error when having filter_item = 'type'
                 # This is fixed by setting it to 'datatype' and update it
                 # to 'type' here:
-                filter_include['type'] = self.config.get(filter_item, [])
+                config_item = self.config[filter_item]
+                if isinstance(config_item, basestring): config_item = [config_item]
+                filter_include['type'] = config_item
+
                 fq_terms_list_length *= len(filter_include['type'])
         # Set type to be 'dataset' by default:
         if not 'type' in filter_include:
