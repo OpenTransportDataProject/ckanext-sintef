@@ -673,7 +673,7 @@ class GeonorgeHarvester(HarvesterBase):
                                                   'name': 'Download page',
                                                   'format': 'HTML',
                                                   'mimetype': 'text/html'})
-            
+
 
             # Local harvest source organization
             source_dataset = \
@@ -681,9 +681,9 @@ class GeonorgeHarvester(HarvesterBase):
                                            {'id': harvest_object.source.id})
             local_org = source_dataset.get('owner_org')
 
-            remote_orgs = self.config.get('remote_orgs', None)
+            create_orgs = self.config.get('create_orgs', True)
 
-            if not remote_orgs == 'create':
+            if not create_orgs:
                 # Assign dataset to the source organization
                 package_dict['owner_org'] = local_org
             else:
@@ -702,7 +702,7 @@ class GeonorgeHarvester(HarvesterBase):
                         validated_org = org['id']
                     except NotFound, e:
                         log.info('Organization %s is not available', remote_org)
-                        if remote_orgs == 'create':
+                        if create_orgs:
                             try:
                                 new_org = {'name': package_dict.get('owner_org'),
                                        'title': organization_name,
