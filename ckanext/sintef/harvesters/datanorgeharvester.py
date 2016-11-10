@@ -563,7 +563,7 @@ class DataNorgeHarvester(HarvesterBase):
 
             create_orgs = self.config.get('create_orgs', True)
 
-            if not remote_orgs:
+            if not create_orgs:
                 # Assign dataset to the source organization
                 package_dict['owner_org'] = local_org
             else:
@@ -582,7 +582,7 @@ class DataNorgeHarvester(HarvesterBase):
                         validated_org = org['id']
                     except NotFound, e:
                         log.info('Organization %s is not available', remote_org)
-                        if remote_orgs:
+                        if create_orgs:
                             try:
                                 new_org = {'name': package_dict.get('owner_org'),
                                            'title': organization_name}
