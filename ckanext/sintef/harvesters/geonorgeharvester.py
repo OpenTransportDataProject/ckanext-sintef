@@ -463,12 +463,13 @@ class GeonorgeHarvester(HarvesterBase):
                 if isinstance(config_item, basestring): config_item = [config_item]
                 if filter_item == 'datatypes':
                     filter_include['type'] = config_item
+                    fq_terms_list_length *= len(filter_include['type'])
                 elif filter_item == 'organizations':
                     filter_include['organization'] = config_item
+                    fq_terms_list_length *= len(filter_include['organization'])
                 elif filter_item == 'themes':
                     filter_include['theme'] = config_item
-
-                fq_terms_list_length *= len(filter_include['type'])
+                    fq_terms_list_length *= len(filter_include['theme'])
         # Set type to be 'dataset' by default:
         if not 'type' in filter_include:
             filter_include['type'] = ['dataset']
