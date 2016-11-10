@@ -159,9 +159,9 @@ class DataNorgeHarvester(HarvesterBase):
             check_if_element_is_string_or_list_in_config_obj('organization')
             check_if_element_is_string_or_list_in_config_obj('theme')
 
-            # Check if 'remote_orgs' is set to 'create' if it is defined
-            if 'remote_orgs' in config_obj and not config_obj['remote_orgs'] == 'create':
-                    raise ValueError('remote_orgs can only be set to "create"')
+            # Check if 'create_orgs' is set to 'create' if it is defined
+            if 'create_orgs' in config_obj and not isinstance(config_obj['create_orgs'], bool):
+                    raise ValueError('create_orgs must be a boolean, either True or False')
 
             # Check if 'force_all' is a boolean value
             if 'force_all' in config_obj and not isinstance(config_obj['force_all'], bool):
