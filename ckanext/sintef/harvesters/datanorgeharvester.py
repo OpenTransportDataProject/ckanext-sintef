@@ -156,8 +156,8 @@ class DataNorgeHarvester(HarvesterBase):
                                         (item, config_obj[element][item]))
 
             # Check if 'filter' is a string or a list of strings if it is defined
-            check_if_element_is_string_or_list_in_config_obj('organization')
-            check_if_element_is_string_or_list_in_config_obj('theme')
+            check_if_element_is_string_or_list_in_config_obj('organizations')
+            check_if_element_is_string_or_list_in_config_obj('themes')
 
             # Check if 'create_orgs' is set to 'create' if it is defined
             if 'create_orgs' in config_obj and not isinstance(config_obj['create_orgs'], bool):
@@ -412,20 +412,20 @@ class DataNorgeHarvester(HarvesterBase):
             object_ids = []
 
             for pkg_dict in pkg_dicts:
-                organization_filter = self.config.get('organization', None)
-                theme_filter = self.config.get('theme', None)
+                organizations_filter = self.config.get('organizations', None)
+                themes_filter = self.config.get('themes', None)
                 passed_filter = True
                 this_organization = pkg_dict.get('publisher').get('name')
                 this_themes = pkg_dict.get('keyword')
 
-                if not organization_filter == None:
+                if not organizations_filter == None:
                     # If this organization is unwanted, continue.
-                    if not this_organization in organization_filter:
+                    if not this_organization in organizations_filter:
                         continue
 
-                if not theme_filter == None:
+                if not themes_filter == None:
                     # If none of the themes match, continue.
-                    if not [kw for kw in this_themes if kw in theme_filter]:
+                    if not [kw for kw in this_themes if kw in themes_filter]:
                         continue
 
 
@@ -564,7 +564,7 @@ class DataNorgeHarvester(HarvesterBase):
             create_orgs = self.config.get('create_orgs', True)
 
             if not create_orgs:
-                # Assign dataset to the source organization
+                # Assign dataset to the source
                 package_dict['owner_org'] = local_org
             else:
                 # check if remote org exist locally, otherwise remove

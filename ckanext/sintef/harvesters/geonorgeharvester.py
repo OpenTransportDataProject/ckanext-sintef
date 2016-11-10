@@ -162,12 +162,12 @@ class GeonorgeHarvester(HarvesterBase):
                                         (item, config_obj[element][item]))
 
             # Check if 'filter' is a string or a list of strings if it is defined
-            check_if_element_is_string_or_list_in_config_obj('theme')
-            check_if_element_is_string_or_list_in_config_obj('organization')
+            check_if_element_is_string_or_list_in_config_obj('themes')
+            check_if_element_is_string_or_list_in_config_obj('organizations')
             check_if_element_is_string_or_list_in_config_obj('text')
             check_if_element_is_string_or_list_in_config_obj('title')
             check_if_element_is_string_or_list_in_config_obj('uuid')
-            check_if_element_is_string_or_list_in_config_obj('datatype')
+            check_if_element_is_string_or_list_in_config_obj('datatypes')
             check_if_element_is_string_or_list_in_config_obj('default_tags')
 
             # Check if 'create_orgs' is set to 'create' if it is defined
@@ -450,18 +450,23 @@ class GeonorgeHarvester(HarvesterBase):
         filter_include = {}
         fq_terms_list_length = 1
         for filter_item in self.config:
-            if filter_item in ['theme', 'organization', 'text', 'title', 'uuid']:
+            if filter_item in ['text', 'title', 'uuid']:
                 config_item = self.config[filter_item]
                 if isinstance(config_item, basestring): config_item = [config_item]
                 filter_include[filter_item] = config_item
                 fq_terms_list_length *= len(filter_include[filter_item])
-            elif filter_item == 'datatype':
+            elif filter_item in ['datatypes', 'organizations', 'themes']:
                 # There was a key error when having filter_item = 'type'
                 # This is fixed by setting it to 'datatype' and update it
-                # to 'type' here:
+                # to 'type' here (same goes for 'organization' and 'organizations'):
                 config_item = self.config[filter_item]
                 if isinstance(config_item, basestring): config_item = [config_item]
-                filter_include['type'] = config_item
+                if filter_item == 'datatypes':
+                    filter_include['type'] = config_item
+                elif filter_item == 'organizations':
+                    filter_include['organization'] = config_item
+                elif filter_item == 'themes':
+                    filter_include['theme'] = config_item
 
                 fq_terms_list_length *= len(filter_include['type'])
         # Set type to be 'dataset' by default:
