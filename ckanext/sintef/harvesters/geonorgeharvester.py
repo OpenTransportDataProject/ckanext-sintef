@@ -667,13 +667,13 @@ class GeonorgeHarvester(HarvesterBase):
                                                       'format': 'application/json'})
                 except Exception, e:
                     log.error(e.message)
-            else:
-                package_dict['resources'] = []
-                package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
-                                                  'name': 'Download page',
-                                                  'format': 'HTML',
-                                                  'mimetype': 'text/html'})
-            
+            elif package_dict.get('DistributionUrl'):
+                    package_dict['resources'] = []
+                    package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
+                                                      'name': 'Download page',
+                                                      'format': 'HTML',
+                                                      'mimetype': 'text/html'})
+
 
             # Local harvest source organization
             source_dataset = \
