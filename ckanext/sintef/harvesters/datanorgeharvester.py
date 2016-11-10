@@ -318,7 +318,7 @@ class DataNorgeHarvester(HarvesterBase):
         return {
                 'Source URL': harvest_object.source.url,
                 'Source title': harvest_object.source.title
-               }
+                }
 
 
     def gather_stage(self, harvest_job):
@@ -537,13 +537,19 @@ class DataNorgeHarvester(HarvesterBase):
 
             if not 'resources' in package_dict:
                 package_dict['resources'] = []
-            for resource in package_dict.get('distribution'):
-                for item in resource.get('description'):
-                    if item.get('language') == 'nb':
-                        name = item.get('value')
-                package_dict['resources'].append({'url': resource.get('accessURL'),
-                                                  'name': name,
-                                                  'format': resource.get('format')})
+
+            distribution = package_dict.get('distribution')
+            if distribution:
+                for resource in distribution:
+                    items = resource.get('description')
+                    name = 'Name'
+                    if items:
+                        for item in items:
+                            if item.get('language') == 'nb':
+                                name = item.get('value')
+                    package_dict['resources'].append({'url': resource.get('accessURL'),
+                                                      'name': name,
+                                                      'format': resource.get('format')})
 
             source_dataset = \
                 get_action('package_show')(base_context.copy(),
