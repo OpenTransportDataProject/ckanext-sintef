@@ -8,7 +8,6 @@ import httplib
 import datetime
 import socket
 import re
-import uuid
 from bs4 import BeautifulSoup
 
 from sqlalchemy import exists
@@ -40,10 +39,6 @@ class DataNorgeHarvester(HarvesterBase):
 
     def _get_datanorge_api_offset(self):
         return '/api/dcat/data.json'
-
-
-    def _get_new_uuid_from_id(self, guid):
-        return str(uuid.uuid3(uuid.NAMESPACE_URL, guid))
 
 
     def info(self):
@@ -432,7 +427,6 @@ class DataNorgeHarvester(HarvesterBase):
                 # Set URL to the DataNorge dataset's ID, which is the dataset's
                 # URL. Then create a new UUID based on the URL.
                 pkg_dict['url'] = pkg_dict.get('id')
-                pkg_dict['id'] = self._get_new_uuid_from_id(pkg_dict.get('url'))
 
                 if pkg_dict['id'] in package_ids:
                     log.info('Discarding duplicate dataset %s - probably due '
