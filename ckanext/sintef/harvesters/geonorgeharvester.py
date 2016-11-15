@@ -390,20 +390,6 @@ class GeonorgeHarvester(HarvesterBase):
         return http_response.read()
 
 
-    def get_metadata_provenance(self, harvest_object):
-        '''
-        This method provides metadata provenance to be used in the 'extras'
-        fields in the datasets that get imported.
-
-        :param: HarvestObject object.
-        :returns: A dictionary containing the harvest source URL and title.
-        '''
-        return {
-                'Source URL': harvest_object.source.url,
-                'Source title': harvest_object.source.title
-                }
-
-
     def gather_stage(self, harvest_job):
         '''
         The gather stage will receive a HarvestJob object and will be
@@ -492,7 +478,8 @@ class GeonorgeHarvester(HarvesterBase):
             if temp_filter_item is not None:
                 switchnum_max *= len(filter_include[temp_filter_item])
             filter_counter += 1
-        ''' All combination of search parameters is now stored in the list:
+        ''' End of search-combination making.
+        All combination of search parameters is now stored in the list:
         fq_terms_list which is a list of dictionaries. Each dictionary in the
         list contains one search to be made.
         '''
@@ -726,9 +713,11 @@ class GeonorgeHarvester(HarvesterBase):
             if not 'extras' in package_dict:
                 package_dict['extras'] = []
 
-            metadata_provenance = self.get_metadata_provenance(harvest_object)
-            for key, value in metadata_provenance.iteritems():
-                package_dict['extras'].append({'key': key, 'value': value})
+
+            metadata_provenance = self.get_metadata_provenance_for_just_this_harvest(harvest_object)
+            package_dict['extras'].append({'key': 'Activity', 'value': json.dumps(metadata_provenance)})
+            # for key, value in metadata_provenance.iteritems():
+            #     package_dict['extras'].append({'key': key, 'value': value})
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
@@ -741,6 +730,25 @@ class GeonorgeHarvester(HarvesterBase):
             log.error(e.error_dict)
         except Exception, e:
             self._save_object_error('%s' % e, harvest_object, 'Import')
+
+
+    def get_metadata_provenance_for_just_this_harvest(self, harvest_object):
+        '''
+        This method provides metadata provenance to be used in the 'extras'
+        fields in the datasets that get imported.
+
+        :param: HarvestObject object.
+        :returns: A dictionary containing the harvest source URL and title.
+        '''
+        return {
+                'activity_occurred': datetime.datetime.utcnow().isoformat(),
+                'activity': 'harvest',
+                'harvest_source_url': harvest_object.source.url,
+                'harvest_source_title': harvest_object.source.title,
+                'harvest_source_type': harvest_object.source.type,
+                'harvested_guid': harvest_object.guid
+                }
+
 
 class SearchError(Exception):
     pass
