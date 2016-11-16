@@ -595,7 +595,6 @@ class DataNorgeHarvester(HarvesterBase):
 
                 package_dict['owner_org'] = validated_org or local_org
 
-
             if not 'extras' in package_dict:
                 package_dict['extras'] = []
 
