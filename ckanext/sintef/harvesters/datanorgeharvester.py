@@ -64,42 +64,6 @@ class DataNorgeHarvester(HarvesterBase):
         }
 
 
-    def _make_lower_and_alphanumeric(self, string_to_modify):
-        '''
-        The 'organization_create' method in ckan.logic.action.create requires
-        the 'name' parameter to be lowercase and alphanumeric. (It is used in
-        the organization's URI.)
-        The names of the organizations imported however, contain capitalized
-        and letters from the norwegian alphabet. This method is therefore
-        needed when creating organizations from imported metadata.
-
-        :param string_to_modify: String that gets modified in this method.
-        :returns: A string that is only contains lowercase and alphanumeric
-                  letters.
-        '''
-        # Characters from the norwegian alphabet are replaced. The replacing is
-        # needed because words like 'kjoere' and 'kjaere' become the same word,
-        # 'kjre', if one was to just remove the norwegian characters.
-        chars_to_replace = {' ': '-',
-                            u'\u00E6': 'ae',
-                            u'\u00C6': 'ae',
-                            u'\u00F8': 'oe',
-                            u'\u00D8': 'oe',
-                            u'\u00E5': 'aa',
-                            u'\u00C5': 'aa'}
-
-        for char in chars_to_replace:
-            string_to_modify = \
-                string_to_modify.replace(char, chars_to_replace.get(char))
-
-        string_to_modify = string_to_modify.lower()
-        # Removing any other disallowed characters, making the string
-        # alphanumeric...
-        modified_string = re.sub(r'[^A-Za-z0-9\-\_]+', '', string_to_modify)
-
-        return modified_string
-
-
     def _set_config(self, config_str):
         '''
         When creating a harvester, the user has the option of entering further
@@ -534,7 +498,7 @@ class DataNorgeHarvester(HarvesterBase):
                 return True
 
             organization_name = package_dict['publisher'].get('name')
-            package_dict['owner_org'] = self._make_lower_and_alphanumeric(organization_name)
+            package_dict['owner_org'] = self._gen_new_name(organization_name)
 
             if not 'tags' in package_dict:
                 package_dict['tags'] = []
@@ -649,6 +613,12 @@ class DataNorgeHarvester(HarvesterBase):
                 harvested_provenance=preexisting_provenance,
                 harvest_object=harvest_object)
             package_dict['extras'].append({'key': 'metadata_provenance', 'value': metadata_provenance})
+
+            force_all = self.config.get('force_all', False)
+
+            if force_all:
+                result = self._create_or_update_package(
+                    package_dict, harvest_object, package_dict_form='package_show')
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
