@@ -302,7 +302,7 @@ class DataNorgeHarvester(HarvesterBase):
         return http_response.read()
 
 
-    def get_metadata_provenance(self, harvest_object):
+    def get_metadata_provenance_for_just_this_harvest(self, harvest_object, reharvest=False):
         '''
         This method provides metadata provenance to be used in the 'extras'
         fields in the datasets that get imported.
@@ -310,10 +310,39 @@ class DataNorgeHarvester(HarvesterBase):
         :param: HarvestObject object.
         :returns: A dictionary containing the harvest source URL and title.
         '''
-        return {
-                'Source URL': harvest_object.source.url,
-                'Source title': harvest_object.source.title
-                }
+        provenance = {
+                         'activity_occurred': datetime.datetime.utcnow().isoformat(),
+                         'activity': 'harvest',
+                         'harvest_source_url': harvest_object.source.url,
+                         'harvest_source_title': harvest_object.source.title,
+                         'harvest_source_type': harvest_object.source.type,
+                         'harvested_guid': harvest_object.guid
+                     }
+        if reharvest: provenance['activity'] = 'reharvest'
+        return provenance
+
+
+    def get_metadata_provenance(self, harvest_object, harvested_provenance=None):
+        '''Returns the metadata_provenance for a dataset, which is the details
+        of this harvest added onto any existing metadata_provenance value in
+        the dataset. This should be stored in the metadata_provenance extra
+        when harvesting.
+        Provenance is a record of harvests, imports and perhaps other
+        activities of production too, as suggested by W3C PROV.
+        This helps keep track when a dataset is created in site A, imported
+        into site B, harvested into site C and from there is harvested into
+        site D. The metadata_provence will be a list of four dicts with the
+        details: [A, B, C, D].
+        '''
+        reharvest = True
+        if isinstance(harvested_provenance, basestring):
+            harvested_provenance = json.loads(harvested_provenance)
+        elif harvested_provenance is None:
+            harvested_provenance = []
+            reharvest = False
+        metadata_provenance = harvested_provenance + \
+            [self.get_metadata_provenance_for_just_this_harvest(harvest_object, reharvest)]
+        return json.dumps(metadata_provenance)
 
 
     def gather_stage(self, harvest_job):
@@ -606,9 +635,20 @@ class DataNorgeHarvester(HarvesterBase):
             if not 'extras' in package_dict:
                 package_dict['extras'] = []
 
-            metadata_provenance = self.get_metadata_provenance(harvest_object)
-            for key, value in metadata_provenance.iteritems():
-                package_dict['extras'].append({'key': key, 'value': value})
+            # Make metadata provenance for this package dict.
+            data_dict = {'id': package_dict['id']}
+            preexisting_provenance = None
+            try:
+                preexisting_package_dict = get_action('package_show')(base_context.copy(), data_dict)
+                for extra in preexisting_package_dict['extras']:
+                    if extra.get('key') == 'metadata_provenance': preexisting_provenance = extra.get('value')
+            except Exception as e:
+                log.debug('Package does not exist in database. Creating metadata_provenance.')
+
+            metadata_provenance = self.get_metadata_provenance(
+                harvested_provenance=preexisting_provenance,
+                harvest_object=harvest_object)
+            package_dict['extras'].append({'key': 'metadata_provenance', 'value': metadata_provenance})
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
