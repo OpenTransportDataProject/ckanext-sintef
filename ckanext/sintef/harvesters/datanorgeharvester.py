@@ -32,6 +32,11 @@ class DataNorgeHarvester(HarvesterBase):
     implements(IHarvester)
     config = None
 
+    PRINT_OK = '\033[92m'
+    PRINT_WARNING = '\033[93m'
+    PRINT_ERROR = '\033[91m'
+    PRINT_END = '\033[0m'
+
 
     def _get_datanorge_base_url(self):
         return 'http://data.norge.no/'
@@ -151,7 +156,8 @@ class DataNorgeHarvester(HarvesterBase):
         try:
             return ''
         except Exception as e:
-            log.debug('No URL could be found for Harvest Object with ID=\'' + harvest_object_id + '\'')
+            log.debug('No URL could be found for Harvest Object with ID=\'%s\''
+                      % harvest_object_id)
 
 
     @classmethod
@@ -203,10 +209,12 @@ class DataNorgeHarvester(HarvesterBase):
         '''
         page = 1
 
-        base_search_url = remote_datanorge_base_url + self._get_datanorge_api_offset() + '?'
+        base_search_url = remote_datanorge_base_url + \
+            self._get_datanorge_api_offset() + '?'
 
         if modified_since:
-            base_search_url += urllib.urlencode({'modified_since': modified_since}) + '&'
+            base_search_url += \
+                urllib.urlencode({'modified_since': modified_since}) + '&'
 
         pkg_dicts = []
 
@@ -222,8 +230,8 @@ class DataNorgeHarvester(HarvesterBase):
                                   'Datanorge instance %s url %r. Error: %s' %
                                   (remote_datanorge_base_url, url, e))
             except ValueError:
-                raise SearchError('Response from remote Datanorge was not JSON: %r'
-                                  % content)
+                raise SearchError('Response from remote Datanorge was not '
+                                  'JSON: %r' % content)
             except ValueError:
                 raise SearchError('Response JSON did not contain '
                                   'results: %r' % response_dict)
@@ -305,7 +313,10 @@ class DataNorgeHarvester(HarvesterBase):
             harvested_provenance = []
             reharvest = False
         metadata_provenance = harvested_provenance + \
-            [self.get_metadata_provenance_for_just_this_harvest(harvest_object, reharvest)]
+            [self.get_metadata_provenance_for_just_this_harvest(
+                harvest_object,
+                reharvest
+            )]
         return json.dumps(metadata_provenance)
 
 
@@ -344,7 +355,7 @@ class DataNorgeHarvester(HarvesterBase):
         # Ideally we can request from the remote Datanorge only those datasets
         # modified since the last completely successful harvest.
         last_error_free_job = self._last_error_free_job(harvest_job)
-        log.debug('Last error-free job: %r', last_error_free_job)
+
         if (last_error_free_job and
                 not self.config.get('force_all', False)):
             get_all_packages = False
@@ -437,6 +448,10 @@ class DataNorgeHarvester(HarvesterBase):
                                     content=json.dumps(pkg_dict))
                 obj.save()
                 object_ids.append(obj.id)
+
+            log.info('%sGather stage for job with ID %s was completed '
+                     'successfully!%s'
+                     % (self.PRINT_OK, harvest_job.source.id, self.PRINT_END))
 
             return object_ids
         except Exception, e:
@@ -534,9 +549,11 @@ class DataNorgeHarvester(HarvesterBase):
                         for item in items:
                             if item.get('language') == 'nb':
                                 name = item.get('value')
-                    package_dict['resources'].append({'url': resource.get('accessURL'),
-                                                      'name': name,
-                                                      'format': resource.get('format')})
+                    package_dict['resources'].append(
+                        {'url': resource.get('accessURL'),
+                        'name': name,
+                        'format': resource.get('format')}
+                    )
 
             source_dataset = \
                 get_action('package_show')(base_context.copy(),
@@ -561,11 +578,17 @@ class DataNorgeHarvester(HarvesterBase):
                 if remote_org:
                     try:
                         data_dict = {'id': remote_org}
-                        org = get_action('organization_show')(base_context.copy(), data_dict)
+                        org = get_action('organization_show')(
+                            base_context.copy(),
+                            data_dict
+                        )
                         if org.get('state') == 'deleted':
                             patch_org = {'id': org.get('id'),
                                          'state': 'active'}
-                            get_action('organization_patch')(base_context.copy(), patch_org)
+                            get_action('organization_patch')(
+                                base_context.copy(),
+                                patch_org
+                            )
                         validated_org = org['id']
                     except NotFound, e:
                         log.info('Organization %s is not available', remote_org)
@@ -575,23 +598,36 @@ class DataNorgeHarvester(HarvesterBase):
                                            'title': organization_name}
 
                                 try:
-                                    html_source = BeautifulSoup(
-                                        urllib.urlopen(package_dict.get('url')).read())
-                                    img_source = html_source.body.find(
-                                        'div', attrs={'class': 'logo'}).img.get('src')
+                                    html_source = \
+                                    BeautifulSoup(
+                                        urllib.urlopen(
+                                            package_dict.get('url')
+                                        ).read()
+                                    )
+                                    img_source = \
+                                        html_source.body.find(
+                                            'div',
+                                            attrs={'class': 'logo'}
+                                        ).img.get('src')
                                 except AttributeError, e:
                                     img_source = None
-                                    log.debug('No logo was found for remote org %s.', remote_org)
+                                    log.debug('No logo was found for remote '
+                                    'org %s.' % remote_org)
 
                                 if img_source:
                                     new_org['image_url'] = img_source
 
-                                org = get_action('organization_create')(base_context.copy(), new_org)
+                                org = get_action('organization_create')(
+                                    base_context.copy(),
+                                    new_org
+                                )
 
-                                log.info('Organization %s has been newly created', remote_org)
+                                log.info('Organization %s has been newly '
+                                         'created', remote_org)
                                 validated_org = org['id']
                             except (RemoteResourceError, ValidationError):
-                                log.error('Could not get remote org %s', remote_org)
+                                log.error('Could not get remote org %s'
+                                          % remote_org)
 
                 package_dict['owner_org'] = validated_org or local_org
 
@@ -602,25 +638,56 @@ class DataNorgeHarvester(HarvesterBase):
             data_dict = {'id': package_dict['id']}
             preexisting_provenance = None
             try:
-                preexisting_package_dict = get_action('package_show')(base_context.copy(), data_dict)
+                preexisting_package_dict = \
+                    get_action('package_show')(base_context.copy(), data_dict)
+                user_prompted = False
+                keep_modifications = None
+
                 for extra in preexisting_package_dict['extras']:
-                    if extra.get('key') == 'metadata_provenance': preexisting_provenance = extra.get('value')
+                    if extra.get('key') == 'metadata_provenance':
+                        preexisting_provenance = extra.get('value')
+                    else:
+                        if not user_prompted:
+                            keep_modifications = raw_input(
+                                '%sDataset with ID %s is already imported, but '
+                                'contains user modifications. Do you wish to '
+                                'keep the modifications to this dataset? '
+                                '[y/n] %s'
+                                % (self.PRINT_WARNING,
+                                   package_dict.get('id', None),
+                                   self.PRINT_END)
+                            )
+                            user_prompted = True
+                        if keep_modifications == 'y':
+                            package_dict['extras'].append(extra)
+                            log.debug('Keeping user modifications for dataset '
+                                     'with ID %s'
+                                     % package_dict.get('id', None))
+                        else:
+                            log.debug('User modifications were discarded for '
+                                     'dataset with ID %s.'
+                                     % package_dict.get('id', None))
+
             except Exception as e:
-                log.debug('Package does not exist in database. Creating metadata_provenance.')
+                pass
 
             metadata_provenance = self.get_metadata_provenance(
-                harvested_provenance=preexisting_provenance,
-                harvest_object=harvest_object)
-            package_dict['extras'].append({'key': 'metadata_provenance', 'value': metadata_provenance})
-
-            force_all = self.config.get('force_all', False)
-
-            if force_all:
-                result = self._create_or_update_package(
-                    package_dict, harvest_object, package_dict_form='package_show')
+                harvest_object, preexisting_provenance)
+            package_dict['extras'].append({'key': 'metadata_provenance',
+                                           'value': metadata_provenance})
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
+
+            if result is True:
+                log.info('%sDataset with ID %s was successfully imported!%s'
+                          % (self.PRINT_OK, package_dict.get('id', None),
+                             self.PRINT_END))
+            else:
+                log.error('%sAn error occured while trying to import dataset '
+                         'with ID %s%s'
+                         % (self.PRINT_ERROR, package_dict.get('id', None),
+                             self.PRINT_END))
 
             return result
         except ValidationError, e:

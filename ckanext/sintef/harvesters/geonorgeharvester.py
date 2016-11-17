@@ -31,6 +31,11 @@ class GeonorgeHarvester(HarvesterBase):
     implements(IHarvester)
     config = None
 
+    PRINT_OK = '\033[92m'
+    PRINT_WARNING = '\033[93m'
+    PRINT_ERROR = '\033[91m'
+    PRINT_END = '\033[0m'
+
 
     def _get_search_api_offset(self):
         return '/api/search/'
@@ -167,13 +172,15 @@ class GeonorgeHarvester(HarvesterBase):
         params = {'facets[0]name': 'uuid',
                   'facets[0]value': harvest_object_id}
 
-        metadata_url = self._get_geonorge_base_url() + self._get_search_api_offset() + '?' + urllib.urlencode(params)
+        metadata_url = self._get_geonorge_base_url() + \
+            self._get_search_api_offset() + '?' + urllib.urlencode(params)
         content = self._get_content(metadata_url)
         content_json = json.loads(content)
         try:
             return content_json[u'Results'][0][u'DistributionUrl']
         except Exception as e:
-            log.debug('No URL could be found for Harvest Object with ID=\'' + harvest_object_id + '\'')
+            log.debug('No URL could be found for Harvest Object with ID=\'%s\''
+                % harvest_object_id)
 
 
     @classmethod
@@ -259,8 +266,8 @@ class GeonorgeHarvester(HarvesterBase):
                 # Load the content as a json (make it a dictionary)
                 response_dict = json.loads(content)
             except ValueError:
-                raise SearchError('Response from remote Geonorge was not JSON: %r'
-                                  % content)
+                raise SearchError('Response from remote Geonorge was not '
+                                  'JSON: %r' % content)
 
             try:
                 # Get the list of results from the response dictionary (content)
@@ -312,14 +319,15 @@ class GeonorgeHarvester(HarvesterBase):
                 try:
                     response_dict = json.loads(content)
                 except ValueError:
-                    raise SearchError('Response from remote Geonorge was not JSON: %r'
-                                      % content)
+                    raise SearchError('Response from remote Geonorge was not '
+                                      'JSON: %r' % content)
 
                 # Checking if the dataset is up to date since last error-free
                 # harvest.
                 if response_dict.get('DateMetadataUpdated') < last_harvest:
-                    log.debug('A dataset with ID %s already exists, and is up to date. Removing from job queue...',
-                              response_dict.get('Uuid'))
+                    log.debug('A dataset with ID %s already exists, and is up '
+                              'to date. Removing from job queue...'
+                              % response_dict.get('Uuid'))
                     new_pkg_dicts.remove(pkg_dict)
 
         return new_pkg_dicts
@@ -393,7 +401,9 @@ class GeonorgeHarvester(HarvesterBase):
             harvested_provenance = []
             reharvest = False
         metadata_provenance = harvested_provenance + \
-            [self.get_metadata_provenance_for_just_this_harvest(harvest_object, reharvest)]
+            [self.get_metadata_provenance_for_just_this_harvest(
+                harvest_object, reharvest
+             )]
         return json.dumps(metadata_provenance)
 
 
@@ -494,7 +504,7 @@ class GeonorgeHarvester(HarvesterBase):
         # Ideally we can request from the remote Geonorge only those datasets
         # modified since the last completely successful harvest.
         last_error_free_job = self._last_error_free_job(harvest_job)
-        log.debug('Last error-free job: %r', last_error_free_job)
+
         if (last_error_free_job and
                 not self.config.get('force_all', False)):
             get_all_packages = False
@@ -506,8 +516,8 @@ class GeonorgeHarvester(HarvesterBase):
             # relatively accurate. Going back a little earlier, just in case.
             get_changes_since = \
                 (last_time - datetime.timedelta(hours=1)).isoformat()
-            log.info('Searching for datasets modified since: %s UTC',
-                     get_changes_since)
+            log.info('Searching for datasets modified since: %s UTC'
+                     % get_changes_since)
 
             try:
                 # For every dictionary of search parameters in fq_terms_list:
@@ -539,7 +549,10 @@ class GeonorgeHarvester(HarvesterBase):
             # Request all remote packages
             try:
                 for fq_terms in fq_terms_list:
-                    pkg_dicts.extend(self._search_for_datasets(remote_geonorge_base_url, fq_terms))
+                    pkg_dicts.extend(
+                        self._search_for_datasets(remote_geonorge_base_url,
+                                                  fq_terms)
+                    )
             except SearchError, e:
                 log.info('Searching for all datasets gave an error: %s', e)
                 self._save_gather_error(
@@ -574,6 +587,10 @@ class GeonorgeHarvester(HarvesterBase):
                                     content=json.dumps(pkg_dict))
                 obj.save()
                 object_ids.append(obj.id)
+
+            log.info('%sGather stage for job with ID %s was completed '
+                     'successfully!%s'
+                     % (self.PRINT_OK, harvest_job.source.id, self.PRINT_END))
 
             return object_ids
         except Exception, e:
@@ -662,17 +679,21 @@ class GeonorgeHarvester(HarvesterBase):
                     dl_url = '%s%s%s' % (self._get_geonorge_download_url(),
                                          self._get_capabilities_api_offset(),
                                          package_dict.get('id', ''))
-                    package_dict['resources'].append({'url': dl_url,
-                                                      'name': 'Geonorge download API',
-                                                      'format': 'application/json'})
+                    package_dict['resources'].append(
+                        {'url': dl_url,
+                        'name': 'Geonorge download API',
+                        'format': 'application/json'}
+                        )
                 except Exception, e:
                     log.error(e.message)
             elif package_dict.get('DistributionUrl'):
                     package_dict['resources'] = []
-                    package_dict['resources'].append({'url': package_dict.get('DistributionUrl'),
-                                                      'name': 'Download page',
-                                                      'format': 'HTML',
-                                                      'mimetype': 'text/html'})
+                    package_dict['resources'].append(
+                        {'url': package_dict.get('DistributionUrl'),
+                        'name': 'Download page',
+                        'format': 'HTML',
+                        'mimetype': 'text/html'}
+                        )
 
 
             # Local harvest source organization
@@ -694,23 +715,29 @@ class GeonorgeHarvester(HarvesterBase):
                 if remote_org:
                     try:
                         data_dict = {'id': remote_org}
-                        org = get_action('organization_show')(base_context.copy(), data_dict)
+                        org = get_action('organization_show')(base_context.copy(),
+                                                              data_dict)
                         if org.get('state') == 'deleted':
                             patch_org = {'id': org.get('id'),
                                          'state': 'active'}
-                            get_action('organization_patch')(base_context.copy(), patch_org)
+                            get_action('organization_patch')(base_context.copy(),
+                                                             patch_org)
                         validated_org = org['id']
                     except NotFound, e:
                         log.info('Organization %s is not available', remote_org)
                         if create_orgs:
                             try:
-                                new_org = {'name': package_dict.get('owner_org'),
-                                       'title': organization_name,
-                                       'image_url': package_dict.get('OrganizationLogo')}
+                                new_org = {
+                                    'name': package_dict.get('owner_org'),
+                                    'title': organization_name,
+                                    'image_url': package_dict.get('OrganizationLogo')
+                                }
 
-                                org = get_action('organization_create')(base_context.copy(), new_org)
+                                org = get_action('organization_create')(base_context.copy(),
+                                                                        new_org)
 
-                                log.info('Organization %s has been newly created', remote_org)
+                                log.info('Organization %s has been newly '
+                                         'created', remote_org)
                                 validated_org = org['id']
                             except (RemoteResourceError, ValidationError):
                                 log.error('Could not get remote org %s', remote_org)
@@ -724,20 +751,55 @@ class GeonorgeHarvester(HarvesterBase):
             data_dict = {'id': package_dict['id']}
             preexisting_provenance = None
             try:
-                preexisting_package_dict = get_action('package_show')(base_context.copy(), data_dict)
+                preexisting_package_dict = \
+                    get_action('package_show')(base_context.copy(), data_dict)
+                user_prompted = False
+                keep_modifications = None
+
                 for extra in preexisting_package_dict['extras']:
-                    if extra.get('key') == 'metadata_provenance': preexisting_provenance = extra.get('value')
+                    if extra.get('key') == 'metadata_provenance':
+                        preexisting_provenance = extra.get('value')
+                    else:
+                        if not user_prompted:
+                            keep_modifications = raw_input(
+                                '%sDataset with ID %s is already imported, but '
+                                'contains user modifications. Do you wish to '
+                                'keep the modifications to this dataset? '
+                                '[y/n] %s'
+                                % (self.PRINT_WARNING,
+                                   package_dict.get('id', None),
+                                   self.PRINT_END)
+                            )
+                            user_prompted = True
+                        if keep_modifications == 'y':
+                            package_dict['extras'].append(extra)
+                            log.info('Keeping user modifications for dataset '
+                                     'with ID %s'
+                                     % package_dict.get('id', None))
+                        else:
+                            log.info('User modifications were discarded for '
+                                     'dataset with ID %s.'
+                                     % package_dict.get('id', None))
             except Exception as e:
-                log.debug('Package does not exist in database. Creating metadata_provenance.')
+                pass
 
-            metadata_provenance = self.get_metadata_provenance(
-                harvested_provenance=preexisting_provenance,
-                harvest_object=harvest_object)
-            package_dict['extras'].append({'key': 'metadata_provenance', 'value': metadata_provenance})
-
+            metadata_provenance = self.get_metadata_provenance(harvest_object,
+                preexisting_provenance)
+            package_dict['extras'].append({'key': 'metadata_provenance',
+                                           'value': metadata_provenance})
 
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form='package_show')
+
+            if result is True:
+                log.info('%sDataset with ID %s was successfully imported!%s'
+                          % (self.PRINT_OK, package_dict.get('id', None),
+                             self.PRINT_END))
+            else:
+                log.error('%sAn error occured while trying to import dataset '
+                         'with ID %s%s'
+                         % (self.PRINT_ERROR, package_dict.get('id', None),
+                             self.PRINT_END))
 
             return result
         except ValidationError, e:
