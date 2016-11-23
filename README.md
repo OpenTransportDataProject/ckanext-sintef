@@ -35,7 +35,7 @@ Development Installation
 To install ckanext-sintef for development, activate your CKAN virtualenv and
 do::
 
-    git clone https://github.com/NTNU-SINTEF-Project-Group/ckanext-sintef.git
+    git clone https://github.com/OpenTransportDataProject/ckanext-sintef.git
     cd ckanext-sintef
     python setup.py develop
     pip install -r dev-requirements.txt
