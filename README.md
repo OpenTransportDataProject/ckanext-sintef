@@ -11,6 +11,8 @@ Installation
 
 To install ckanext-sintef:
 
+0. You will need ckanext-harvest in order for ckanext-sintef to work. For documentation on how to install ckanext-harvest, visit https://github.com/ckan/ckanext-harvest.
+
 1. Activate your CKAN virtual environment, for example::
 
      . /usr/lib/ckan/default/bin/activate
