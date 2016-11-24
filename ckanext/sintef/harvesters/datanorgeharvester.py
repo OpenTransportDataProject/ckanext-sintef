@@ -1,13 +1,11 @@
 from ckan.plugins.core import SingletonPlugin, implements
 from ckanext.harvest.interfaces import IHarvester
-from ckan.plugins import toolkit
 
 import urllib
 import urllib2
 import httplib
 import datetime
 import socket
-import re
 from bs4 import BeautifulSoup
 
 from sqlalchemy import exists
@@ -15,7 +13,6 @@ from sqlalchemy import exists
 from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.lib.helpers import json
-from ckan.lib.munge import munge_name
 from ckan.plugins import toolkit
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError
@@ -36,10 +33,6 @@ class DataNorgeHarvester(HarvesterBase):
     PRINT_WARNING = '\033[93m'
     PRINT_ERROR = '\033[91m'
     PRINT_END = '\033[0m'
-
-
-    def _get_datanorge_base_url(self):
-        return 'http://data.norge.no/'
 
 
     def _get_datanorge_api_offset(self):
@@ -153,11 +146,15 @@ class DataNorgeHarvester(HarvesterBase):
         :param harvest_object_id: HarvestObject id
         :returns: A string with the URL to the original document
         '''
-        try:
-            return ''
-        except Exception as e:
+        obj = model.Session.query(HarvestObject) \
+                   .filter(HarvestObject.id==harvest_object_id).first()
+
+        if not obj:
             log.debug('No URL could be found for Harvest Object with ID=\'%s\''
                       % harvest_object_id)
+            return None
+
+        return obj.package_id
 
 
     @classmethod
