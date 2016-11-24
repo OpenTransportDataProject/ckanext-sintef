@@ -14,21 +14,21 @@ To install ckanext-sintef:
 0. You will need ckanext-harvest in order for ckanext-sintef to work. For documentation on how to install ckanext-harvest, visit https://github.com/ckan/ckanext-harvest.
 
 1. Activate your CKAN virtual environment, for example::
-
-    . ~/ckan/default/bin/activate
-
+```
+~/ckan/default/bin/activate
+```
 2. Install the ckanext-sintef Python package into your virtual environment::
-
-    cd ~ckan/default/src/ckanext-sintef
-    python setup.py develop
-
+```
+cd ~ckan/default/src/ckanext-sintef
+python setup.py develop
+```
 3. Add ``geonorge_harvester`` and ``datanorge_harvester`` to the ``ckan.plugins`` setting in your CKAN config file (by default the config file is located at
    ``/etc/ckan/default/production.ini``).
 
 4. Restart CKAN. For example if you've deployed CKAN with Apache on Ubuntu::
-
-    sudo service apache2 reload
-
+```
+sudo service apache2 reload
+```
 
 ------------------------
 Development Installation
@@ -36,8 +36,9 @@ Development Installation
 
 To install ckanext-sintef for development, activate your CKAN virtualenv and
 do::
-
-    git clone https://github.com/OpenTransportDataProject/ckanext-sintef.git
-    cd ckanext-sintef
-    python setup.py develop
-    pip install -r dev-requirements.txt
+```
+git clone https://github.com/OpenTransportDataProject/ckanext-sintef.git
+cd ckanext-sintef
+python setup.py develop
+pip install -r dev-requirements.txt
+```
