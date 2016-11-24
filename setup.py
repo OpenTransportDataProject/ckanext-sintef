@@ -17,11 +17,11 @@ setup(
     # http://packaging.python.org/en/latest/tutorial.html#version
     version='1.1.0',
 
-    description='''Harvest plugins for Sintef.''',
+    description='''Harvest plugins for SINTEF.''',
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://github.com/NTNU-SINTEF-Project-Group/ckanext-sintef',
+    url='https://github.com/OpenTransportDataProject/ckanext-sintef',
 
     # Author details
     author='''Awat A. Langø, Henrik S. Ødegård''',
@@ -79,7 +79,6 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points='''
         [ckan.plugins]
-        sintef=ckanext.sintef.plugin:SintefPlugin
         geonorge_harvester=ckanext.sintef.harvesters.geonorgeharvester:GeonorgeHarvester
         datanorge_harvester=ckanext.sintef.harvesters.datanorgeharvester:DataNorgeHarvester
 	[babel.extractors]
