@@ -1,20 +1,17 @@
 from ckan.plugins.core import SingletonPlugin, implements
 from ckanext.harvest.interfaces import IHarvester
-from ckan.plugins import toolkit
 
 import urllib
 import urllib2
 import httplib
 import datetime
 import socket
-import re
 
 from sqlalchemy import exists
 
 from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.lib.helpers import json
-from ckan.lib.munge import munge_name
 from ckan.plugins import toolkit
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError
@@ -47,10 +44,6 @@ class GeonorgeHarvester(HarvesterBase):
 
     def _get_capabilities_api_offset(self):
         return '/api/capabilities/'
-
-
-    def _get_geonorge_base_url(self):
-        return 'https://kartkatalog.geonorge.no'
 
 
     def _get_geonorge_download_url(self):
@@ -169,18 +162,18 @@ class GeonorgeHarvester(HarvesterBase):
         :param harvest_object_id: HarvestObject id
         :returns: A string with the URL to the original document
         '''
-        params = {'facets[0]name': 'uuid',
-                  'facets[0]value': harvest_object_id}
+        obj = model.Session.query(HarvestObject) \
+                   .filter(HarvestObject.id==harvest_object_id).first()
+        job = model.Session.query(HarvestJob) \
+                   .filter(HarvestJob.id==obj.harvest_job_id).first()
 
-        metadata_url = self._get_geonorge_base_url() + \
-            self._get_search_api_offset() + '?' + urllib.urlencode(params)
-        content = self._get_content(metadata_url)
-        content_json = json.loads(content)
-        try:
-            return content_json[u'Results'][0][u'DistributionUrl']
-        except Exception as e:
+        if not obj or not job:
             log.debug('No URL could be found for Harvest Object with ID=\'%s\''
-                % harvest_object_id)
+                      % harvest_object_id)
+            return None
+
+        return '{base_url}/metadata/uuid/{uuid}'.format(base_url=job.source.url,
+                                                        uuid=obj.package_id)
 
 
     @classmethod
