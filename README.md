@@ -11,6 +11,8 @@ Installation
 
 To install ckanext-sintef:
 
+0. You will need ckanext-harvest in order for ckanext-sintef to work. For documentation on how to install ckanext-harvest, visit https://github.com/ckan/ckanext-harvest.
+
 1. Activate your CKAN virtual environment, for example::
 
      . /usr/lib/ckan/default/bin/activate
@@ -35,7 +37,7 @@ Development Installation
 To install ckanext-sintef for development, activate your CKAN virtualenv and
 do::
 
-    git clone https://github.com/NTNU-SINTEF-Project-Group/ckanext-sintef.git
+    git clone https://github.com/OpenTransportDataProject/ckanext-sintef.git
     cd ckanext-sintef
     python setup.py develop
     pip install -r dev-requirements.txt
